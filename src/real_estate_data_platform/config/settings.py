@@ -35,6 +35,20 @@ class PostgresSettings(BaseSettings):
         )
 
 
+class ScraperSettings(BaseSettings):
+    """Configuration settings for web scrapers."""
+
+    model_config = SettingsConfigDict(env_prefix="SCRAPER_", case_sensitive=False)
+
+    user_agent: str = Field(
+        default=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        )
+    )
+    download_delay: float = Field(default=2.0, ge=0)
+
+
 class Settings(BaseSettings):
     """Main application settings loaded from environment variables."""
 
@@ -48,6 +62,7 @@ class Settings(BaseSettings):
     environment: str = Field(default="development")
     minio: MinIOSettings = Field(default_factory=MinIOSettings)
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
+    scraper: ScraperSettings = Field(default_factory=ScraperSettings)
 
 
 settings = Settings()
