@@ -16,7 +16,6 @@ dependencies = [
     "prefect (>=3.6.16,<4.0.0)",
     "beautifulsoup4 (>=4.12.0,<5.0.0)",
     "requests (>=2.31.0,<3.0.0)",
-    "pandas (>=2.1.0,<3.0.0)",
     "minio (>=7.2.0,<8.0.0)"
 ]
 

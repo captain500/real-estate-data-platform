@@ -1,7 +1,6 @@
 """Prefect flow for scraping rental listings."""
 
 import datetime
-import logging
 
 from prefect import flow, get_run_logger
 
@@ -9,16 +8,15 @@ from real_estate_data_platform.config.settings import settings
 from real_estate_data_platform.models.listings import City, FlowResult, FlowStatus
 from real_estate_data_platform.scrapers.base_scraper import BaseScraper
 from real_estate_data_platform.scrapers.scraper_type import ScraperType
+from real_estate_data_platform.tasks.load_bronze import save_listings_to_minio
 from real_estate_data_platform.tasks.scraping import (
     aggregate_results,
     fetch_and_parse_page,
 )
 
-logger = logging.getLogger(__name__)
 
-
-@flow(name="scrape-listings")
-def scrape_listings(
+@flow(name="scrape-to-bronze")
+def scrape_to_bronze(
     scraper_type: ScraperType, city: City = City.TORONTO, max_pages: int = 5
 ) -> FlowResult:
     """Scrape listings from a rental website and save to MinIO raw bucket.
@@ -49,11 +47,10 @@ def scrape_listings(
     # Get configuration from settings
     user_agent = settings.scraper.user_agent
     download_delay = settings.scraper.download_delay
-    # TODO: Use these settings when implementing MinIO storage
-    # minio_endpoint = settings.minio.endpoint
-    # minio_access_key = settings.minio.access_key
-    # minio_secret_key = settings.minio.secret_key.get_secret_value()
-    # bucket_name = settings.minio.bucket_name
+    minio_endpoint = settings.minio.endpoint
+    minio_access_key = settings.minio.access_key
+    minio_secret_key = settings.minio.secret_key.get_secret_value()
+    bucket_name = settings.minio.bucket_name
 
     # Get scraper class and instantiate it
     flow_logger.info(f"Initializing {scraper_type.value} scraper")
@@ -101,18 +98,18 @@ def scrape_listings(
             scrape_date=scrape_date,
         )
 
-    """
-    # Save to MinIO
+    # Save to MinIO (raw bucket)
     flow_logger.info("Saving listings to MinIO")
 
     storage_result = save_listings_to_minio(
         listings=all_listings,
+        source=scraper_type.value,
         city=city.value,
         minio_endpoint=minio_endpoint,
         minio_access_key=minio_access_key,
         minio_secret_key=minio_secret_key,
         bucket_name=bucket_name,
-        scrape_date=scrape_date,
+        partition_date=scrape_date.strftime("%Y-%m-%d"),
     )
 
     scraper.close()
@@ -127,10 +124,9 @@ def scrape_listings(
         scrape_date=scrape_date,
         storage=storage_result,
     )
-    """
 
 
 if __name__ == "__main__":
     # Example usage with Kijiji scraper
-    result = scrape_listings(scraper_type=ScraperType.KIJIJI, city=City.TORONTO, max_pages=1)
+    result = scrape_to_bronze(scraper_type=ScraperType.KIJIJI, city=City.TORONTO, max_pages=1)
     print(f"Scraping result: {result}")

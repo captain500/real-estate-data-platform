@@ -1,12 +1,12 @@
 """Data models for real estate listings."""
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class FlowStatus(str, Enum):
+class FlowStatus(StrEnum):
     """Status of a scraping flow execution."""
 
     SUCCESS = "success"
@@ -14,7 +14,7 @@ class FlowStatus(str, Enum):
     COMPLETED_NO_DATA = "completed_no_data"
 
 
-class City(str, Enum):
+class City(StrEnum):
     """Supported cities for scraping."""
 
     TORONTO = "toronto"
@@ -35,7 +35,6 @@ class RentalsListing(BaseModel):
     street: str = Field(description="Street address")
     city: City = Field(..., description="City name from supported list")
     neighbourhood: str | None = Field(None, description="Neighbourhood name")
-    zip_code: str | None = Field(None, description="Postal code")
 
     # Pricing and dates
     rent: float | None = Field(None, description="Monthly rent in CAD", ge=0)

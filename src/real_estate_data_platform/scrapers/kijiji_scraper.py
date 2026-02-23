@@ -3,7 +3,6 @@
 import json
 import logging
 import random
-from datetime import datetime
 from time import sleep
 
 from bs4 import BeautifulSoup
@@ -125,6 +124,7 @@ class KijijiScraper(BaseScraper):
         Args:
             soup: BeautifulSoup object of the search page
             city: City being scraped (City enum value)
+            download_delay: Delay in seconds between requests to listing pages
 
         Returns:
             List of parsed RentalsListing objects
@@ -143,7 +143,6 @@ class KijijiScraper(BaseScraper):
                     listings.append(listing)
                 if download_delay > 0:
                     sleep(self.download_delay * random.uniform(0.5, 1.5))
-                break
         except Exception as e:
             logger.error(f"Error parsing search page for {city.value}: {e}")
 
@@ -207,7 +206,6 @@ class KijijiScraper(BaseScraper):
                 city=city,
                 neighbourhood=neighbourhood,
                 rent=price,
-                date_posted=self._parse_datetime(listing_data.get("datePosted")),
                 bedrooms=self._parse_int(attributes.get("bedrooms")),
                 bathrooms=self._parse_int(attributes.get("bathrooms")),
                 size_sqft=self._parse_float(attributes.get("size_sqft")),
@@ -295,15 +293,6 @@ class KijijiScraper(BaseScraper):
             }
 
         return neighbourhood, scores
-
-    def _parse_datetime(self, datetime_str: str | None) -> datetime | None:
-        """Parse ISO datetime string."""
-        if not datetime_str:
-            return None
-        try:
-            return datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
-        except (ValueError, AttributeError, TypeError):
-            return None
 
     def _parse_float(self, value: str | None) -> float | None:
         """Extract float value from text."""
