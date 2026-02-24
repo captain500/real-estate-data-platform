@@ -1,3 +1,5 @@
+from enum import Enum
+
 from pydantic import Field, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,7 +9,7 @@ class MinIOSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="MINIO_", case_sensitive=False)
 
-    endpoint: str = Field(default="http://minio:9000")
+    endpoint: str = Field(default="localhost:9000")
     access_key: str = Field(default="minioadmin")
     secret_key: SecretStr = Field(default=SecretStr("minioadmin"))
     bucket_name: str = Field(default="raw")
@@ -35,6 +37,13 @@ class PostgresSettings(BaseSettings):
         )
 
 
+class Environment(str, Enum):
+    """Application environment."""
+
+    DEV = "dev"
+    PROD = "prod"
+
+
 class ScraperSettings(BaseSettings):
     """Configuration settings for web scrapers."""
 
@@ -59,7 +68,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
     )
 
-    environment: str = Field(default="development")
+    environment: Environment = Field(default=Environment.DEV)
     minio: MinIOSettings = Field(default_factory=MinIOSettings)
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
     scraper: ScraperSettings = Field(default_factory=ScraperSettings)
