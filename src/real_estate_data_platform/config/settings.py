@@ -4,6 +4,13 @@ from pydantic import Field, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class Environment(str, Enum):
+    """Application environment."""
+
+    DEV = "dev"
+    PROD = "prod"
+
+
 class MinIOSettings(BaseSettings):
     """Configuration settings for MinIO object storage."""
 
@@ -35,13 +42,6 @@ class PostgresSettings(BaseSettings):
             f"{self.password.get_secret_value()}@"
             f"{self.host}:{self.port}/{self.db}"
         )
-
-
-class Environment(str, Enum):
-    """Application environment."""
-
-    DEV = "dev"
-    PROD = "prod"
 
 
 class ScraperSettings(BaseSettings):

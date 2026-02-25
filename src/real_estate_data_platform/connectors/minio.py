@@ -10,6 +10,10 @@ from minio.error import S3Error
 from real_estate_data_platform.models.enums import OperationStatus
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import StorageResult
+from real_estate_data_platform.utils.dates import (
+    format_filename_timestamp,
+    format_partition_date,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +32,7 @@ class MinIOStorage:
         """Initialize MinIO storage client.
 
         Args:
-            endpoint: MinIO endpoint (e.g., 'minio:9000', 'localhost:9000')
+            endpoint: MinIO endpoint (e.g., 'localhost:9000')
             access_key: MinIO access key
             secret_key: MinIO secret key
             bucket_name: Base bucket name. Default: raw
@@ -51,7 +55,7 @@ class MinIOStorage:
         self._ensure_bucket_exists()
 
     def _ensure_bucket_exists(self) -> None:
-        """Create bucket if it doesn't exist."""
+        """Check if the bucket exists and create it if it doesn't."""
         try:
             if not self.client.bucket_exists(self.bucket_name):
                 self.client.make_bucket(self.bucket_name)
@@ -59,26 +63,6 @@ class MinIOStorage:
         except S3Error as e:
             logger.error(f"Error checking/creating bucket: {e}")
             raise
-
-    def _get_partition_date(self) -> str:
-        """Get current date for partitioning.
-
-        Returns:
-            Date string in YYYY-MM-DD format
-        """
-        from datetime import datetime
-
-        return datetime.now().strftime("%Y-%m-%d")
-
-    def _get_timestamp(self) -> str:
-        """Get current timestamp for filename.
-
-        Returns:
-            Timestamp string in YYYYMMDD_HHMMSS format
-        """
-        from datetime import datetime
-
-        return datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def _get_object_path(
         self,
@@ -99,9 +83,9 @@ class MinIOStorage:
             Object path in MinIO
         """
         if partition_date is None:
-            partition_date = self._get_partition_date()
+            partition_date = format_partition_date()
 
-        timestamp = self._get_timestamp()
+        timestamp = format_filename_timestamp()
         return (
             f"listings/source={source}/city={city}/dt={partition_date}/listings_{timestamp}.parquet"
         )
@@ -130,11 +114,11 @@ class MinIOStorage:
                 status=OperationStatus.SKIPPED,
                 reason="empty_listings",
                 count=0,
-                timestamp=self._get_partition_date(),
+                timestamp=format_partition_date(),
             )
 
         if partition_date is None:
-            partition_date = self._get_partition_date()
+            partition_date = format_partition_date()
 
         object_path = self._get_object_path(source, city, partition_date)
 
