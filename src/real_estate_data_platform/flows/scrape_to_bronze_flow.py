@@ -15,6 +15,7 @@ from real_estate_data_platform.tasks.scraping import (
     aggregate_results,
     fetch_and_parse_page,
 )
+from real_estate_data_platform.utils.dates import format_date
 
 
 @flow(name="scrape-to-bronze")
@@ -133,9 +134,9 @@ def scrape_to_bronze(
         minio_endpoint=minio_endpoint,
         minio_access_key=minio_access_key,
         minio_secret_key=minio_secret_key,
+        partition_date=format_date(scrape_date),
         environment=settings.environment.value,
         bucket_name=bucket_name,
-        partition_date=scrape_date.strftime("%Y-%m-%d"),
     )
 
     scraper.close()

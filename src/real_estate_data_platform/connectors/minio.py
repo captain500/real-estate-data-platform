@@ -11,8 +11,7 @@ from real_estate_data_platform.models.enums import OperationStatus
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import StorageResult
 from real_estate_data_platform.utils.dates import (
-    format_filename_timestamp,
-    format_partition_date,
+    format_timestamp,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,7 @@ class MinIOStorage:
         self,
         source: str,
         city: str,
-        partition_date: str | None = None,
+        partition_date: str,
     ) -> str:
         """Generate S3 object path with partitioning.
 
@@ -82,20 +81,13 @@ class MinIOStorage:
         Returns:
             Object path in MinIO
         """
-        if partition_date is None:
-            partition_date = format_partition_date()
-
-        timestamp = format_filename_timestamp()
+        timestamp = format_timestamp()
         return (
             f"listings/source={source}/city={city}/dt={partition_date}/listings_{timestamp}.parquet"
         )
 
     def save_listings(
-        self,
-        listings: list[RentalsListing],
-        source: str,
-        city: str,
-        partition_date: str | None = None,
+        self, listings: list[RentalsListing], source: str, city: str, partition_date: str
     ) -> StorageResult:
         """Save listings to MinIO as Parquet.
 
@@ -103,7 +95,7 @@ class MinIOStorage:
             listings: List of RentalsListing objects
             source: Data source name (e.g., 'kijiji')
             city: City name
-            partition_date: Date string (YYYY-MM-DD). If None, uses today.
+            partition_date: Date string (YYYY-MM-DD)
 
         Returns:
             StorageResult with operation metadata
@@ -112,13 +104,9 @@ class MinIOStorage:
             logger.warning("No listings to save, skipping...")
             return StorageResult(
                 status=OperationStatus.SKIPPED,
-                reason="empty_listings",
+                reason="Empty listings",
                 count=0,
-                timestamp=format_partition_date(),
             )
-
-        if partition_date is None:
-            partition_date = format_partition_date()
 
         object_path = self._get_object_path(source, city, partition_date)
 
@@ -145,7 +133,6 @@ class MinIOStorage:
                 status=OperationStatus.SUCCESS,
                 path=f"s3://{self.bucket_name}/{object_path}",
                 count=len(listings),
-                timestamp=partition_date,
             )
 
             logger.info(f"Successfully saved {len(listings)} listings to {object_path}")
@@ -158,7 +145,6 @@ class MinIOStorage:
                 path=object_path,
                 reason=str(e),
                 count=0,
-                timestamp=partition_date,
             )
         except Exception as e:
             logger.error(f"Unexpected error saving listings: {e}")
@@ -166,5 +152,4 @@ class MinIOStorage:
                 status=OperationStatus.FAILED,
                 reason=f"Unexpected error: {str(e)}",
                 count=0,
-                timestamp=partition_date,
             )

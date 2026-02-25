@@ -3,8 +3,8 @@
 from datetime import datetime
 
 
-def format_partition_date(date: datetime | None = None) -> str:
-    """Format date for partition key in object path.
+def format_date(date: datetime | None = None) -> str:
+    """Format date in ISO format (YYYY-MM-DD).
 
     Used to create partition folders like: dt=2026-02-25
 
@@ -19,8 +19,8 @@ def format_partition_date(date: datetime | None = None) -> str:
     return date.strftime("%Y-%m-%d")
 
 
-def format_filename_timestamp(date: datetime | None = None) -> str:
-    """Format timestamp for unique filename suffix.
+def format_timestamp(date: datetime | None = None) -> str:
+    """Format timestamp in compact format (YYYYMMDD_HHMMSS).
 
     Used to create unique filenames like: listings_20260225_143022.parquet
 

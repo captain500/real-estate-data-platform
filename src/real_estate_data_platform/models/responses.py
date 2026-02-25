@@ -14,7 +14,6 @@ class StorageResult(BaseModel):
     path: str | None = Field(None, description="S3 object path")
     count: int = Field(default=0, description="Number of items stored")
     reason: str | None = Field(None, description="Reason for skip/failure")
-    timestamp: str = Field(..., description="Date string (YYYY-MM-DD)")
 
     model_config = {"use_enum_values": True}
 
@@ -27,6 +26,8 @@ class ScrapingResult(BaseModel):
     listings: list = Field(default_factory=list, description="Listings found")
     total_listings: int = Field(..., description="Total listings on page")
     error: str | None = Field(None, description="Error message if scraping failed")
+
+    model_config = {"use_enum_values": True}
 
 
 class FlowResult(BaseModel):
