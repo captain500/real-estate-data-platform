@@ -1,1 +1,1 @@
-# Prefect tasks for ETL operations
+"""Prefect tasks for ETL operations."""

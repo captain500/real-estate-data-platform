@@ -95,6 +95,11 @@ def aggregate_results(results: list[ScrapingResult]) -> list[RentalsListing]:
             error_count += 1
         all_listings.extend(result.listings)
 
-    task_logger.info(f"Aggregated {len(all_listings)} listings ({error_count} pages with errors)")
+    if error_count > 0:
+        task_logger.info(
+            f"Aggregated {len(all_listings)} listings ({error_count} pages with errors)"
+        )
+    else:
+        task_logger.info(f"Aggregated {len(all_listings)} listings from all pages")
 
     return all_listings

@@ -1,1 +1,1 @@
-# Web scrapers for different real estate sources
+"""Web scrapers for different real estate sources."""

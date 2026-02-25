@@ -1,16 +1,11 @@
 """Prefect tasks for storage operations (MinIO, etc)."""
 
-import logging
-
 from prefect import get_run_logger, task
 
 from real_estate_data_platform.config.settings import Environment
 from real_estate_data_platform.connectors.minio import MinIOStorage
-from real_estate_data_platform.models.enums import OperationStatus
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import StorageResult
-
-logger = logging.getLogger(__name__)
 
 
 @task
@@ -64,13 +59,8 @@ def save_listings_to_minio(
             partition_date=partition_date,
         )
 
-        if result.status == OperationStatus.SUCCESS:
-            task_logger.info(f"Successfully saved {result.count} listings to {result.path}")
-        else:
-            task_logger.error(f"Failed to save listings: {result.reason}")
-
         return result
 
     except Exception as e:
-        task_logger.error(f"Unexpected error saving listings: {e}")
+        task_logger.error(f"Error saving listings to MinIO: {e}")
         raise

@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from real_estate_data_platform.models.enums import City
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.scrapers.base_scraper import BaseScraper
+from real_estate_data_platform.utils.parsers import parse_float, parse_int
 
 logger = logging.getLogger(__name__)
 
@@ -216,9 +217,9 @@ class KijijiScraper(BaseScraper):
                 city=city,
                 neighbourhood=neighbourhood,
                 rent=price,
-                bedrooms=self._parse_int(attributes.get("bedrooms")),
-                bathrooms=self._parse_int(attributes.get("bathrooms")),
-                size_sqft=self._parse_float(attributes.get("size_sqft")),
+                bedrooms=parse_int(attributes.get("bedrooms")),
+                bathrooms=parse_int(attributes.get("bathrooms")),
+                size_sqft=parse_float(attributes.get("size_sqft")),
                 latitude=listing_data.get("location", {}).get("coordinates", {}).get("latitude"),
                 longitude=listing_data.get("location", {}).get("coordinates", {}).get("longitude"),
                 images=listing_data.get("imageUrls") or [],
@@ -310,22 +311,4 @@ class KijijiScraper(BaseScraper):
             normalized = str(value).replace("Z", "+00:00")
             return datetime.fromisoformat(normalized)
         except ValueError:
-            return None
-
-    def _parse_float(self, value: str | None) -> float | None:
-        """Extract float value from text."""
-        if not value:
-            return None
-        try:
-            return float(value.replace(",", "").replace("$", "").strip())
-        except (ValueError, AttributeError):
-            return None
-
-    def _parse_int(self, value: str | None) -> int | None:
-        """Extract integer value from text."""
-        if not value:
-            return None
-        try:
-            return int("".join(filter(str.isdigit, value)))
-        except (ValueError, AttributeError):
             return None

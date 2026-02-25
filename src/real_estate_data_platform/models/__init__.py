@@ -1,1 +1,1 @@
-# Models for real estate listings
+"""Data models for the real estate platform."""

@@ -96,7 +96,8 @@ def scrape_to_bronze(
             error=f"City not supported by {scraper_type.value}",
         )
 
-    # TODO Fetch pages in parallel
+    # Fetch pages
+    # TODO: Implement parallel page fetching using map_over in Prefect flow
     flow_logger.info(f"Fetching {max_pages} pages for {city.value}")
 
     page_results = []
@@ -154,7 +155,7 @@ def scrape_to_bronze(
 
 
 if __name__ == "__main__":
-    # Example usage with Kijiji scraper
+    # Example usage with Kijiji scraper for a specific date
     result = scrape_to_bronze(
         scraper_type=ScraperType.KIJIJI,
         city=City.TORONTO,
