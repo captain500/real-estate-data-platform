@@ -3,11 +3,13 @@
 import json
 import logging
 import random
+from datetime import datetime
 from time import sleep
 
 from bs4 import BeautifulSoup
 
-from real_estate_data_platform.models.listings import City, RentalsListing
+from real_estate_data_platform.models.enums import City
+from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.scrapers.base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -116,10 +118,10 @@ class KijijiScraper(BaseScraper):
             logger.warning(f"Error parsing search listing: {e}")
             return None
 
-    def parse_page(
+    def _parse_page_impl(
         self, soup: BeautifulSoup, city: City, download_delay: float = 2.0
     ) -> list[RentalsListing]:
-        """Parse all listings from a search results page.
+        """Internal implementation for parsing all listings from a search results page.
 
         Args:
             soup: BeautifulSoup object of the search page
@@ -127,7 +129,7 @@ class KijijiScraper(BaseScraper):
             download_delay: Delay in seconds between requests to listing pages
 
         Returns:
-            List of parsed RentalsListing objects
+            List of parsed RentalsListing objects (filtering handled by parse_page)
         """
         listings = []
 
@@ -143,6 +145,9 @@ class KijijiScraper(BaseScraper):
                     listings.append(listing)
                 if download_delay > 0:
                     sleep(self.download_delay * random.uniform(0.5, 1.5))
+                # TODO: Remove this break after testing
+                if len(listings) >= 8:
+                    break
         except Exception as e:
             logger.error(f"Error parsing search page for {city.value}: {e}")
 
@@ -196,10 +201,15 @@ class KijijiScraper(BaseScraper):
             if isinstance(price, int | float) and price > 100:
                 price = price / 100
 
+            activation_date = listing_data.get("activationDate") or page_props.get("activationDate")
+            published_at = self._parse_activation_date(activation_date)
+
             # Build RentalsListing with mapped attributes
             listing = RentalsListing(
+                listing_id=str(listing_id),
                 url=url,
                 website=self.NAME_WEBSITE,
+                published_at=published_at,
                 title=listing_data.get("title"),
                 description=listing_data.get("description"),
                 street=listing_data.get("location", {}).get("address"),
@@ -211,7 +221,7 @@ class KijijiScraper(BaseScraper):
                 size_sqft=self._parse_float(attributes.get("size_sqft")),
                 latitude=listing_data.get("location", {}).get("coordinates", {}).get("latitude"),
                 longitude=listing_data.get("location", {}).get("coordinates", {}).get("longitude"),
-                images=listing_data.get("imageUrls") or None,
+                images=listing_data.get("imageUrls") or [],
                 **{
                     k: attributes.get(k)
                     for k in ATTRIBUTE_MAPPING.values()
@@ -293,6 +303,14 @@ class KijijiScraper(BaseScraper):
             }
 
         return neighbourhood, scores
+
+    def _parse_activation_date(self, value) -> datetime:
+        """Parse activation date in ISO format like '2026-02-12T08:03:15.000Z'."""
+        try:
+            normalized = str(value).replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
 
     def _parse_float(self, value: str | None) -> float | None:
         """Extract float value from text."""

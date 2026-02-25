@@ -1,11 +1,13 @@
 """Prefect flow for scraping rental listings."""
 
 import datetime
+from datetime import date
 
 from prefect import flow, get_run_logger
 
 from real_estate_data_platform.config.settings import settings
-from real_estate_data_platform.models.listings import City, FlowResult, FlowStatus
+from real_estate_data_platform.models.enums import City, FlowStatus, ScraperMode
+from real_estate_data_platform.models.responses import FlowResult
 from real_estate_data_platform.scrapers.base_scraper import BaseScraper
 from real_estate_data_platform.scrapers.scraper_type import ScraperType
 from real_estate_data_platform.tasks.load_bronze import save_listings_to_minio
@@ -17,7 +19,12 @@ from real_estate_data_platform.tasks.scraping import (
 
 @flow(name="scrape-to-bronze")
 def scrape_to_bronze(
-    scraper_type: ScraperType, city: City = City.TORONTO, max_pages: int = 5
+    scraper_type: ScraperType,
+    city: City = City.TORONTO,
+    mode: ScraperMode = ScraperMode.LAST_X_DAYS,
+    days: int = 7,
+    specific_date: date | None = None,
+    max_pages: int = 10,
 ) -> FlowResult:
     """Scrape listings from a rental website and save to MinIO raw bucket.
 
@@ -30,16 +37,28 @@ def scrape_to_bronze(
     Args:
         scraper_type: ScraperType enum specifying which scraper to use
         city: City to scrape (City enum)
+        mode: ScraperMode to use (last_x_days or specific_date)
+        days: Number of days for last_x_days mode
+        specific_date: Specific date for specific_date mode
         max_pages: Maximum number of pages to scrape
 
     Returns:
         FlowResult with scraping metadata and results
+
+    Raises:
+        ValueError: If parameters are invalid
     """
     flow_logger = get_run_logger()
 
+    # Validate parameters
+    if mode == ScraperMode.SPECIFIC_DATE and specific_date is None:
+        error_msg = "specific_date is required when mode is SPECIFIC_DATE"
+        flow_logger.error(error_msg)
+        raise ValueError(error_msg)
+
     flow_logger.info(
         f"Starting scrape for {city.value} using {scraper_type.value} scraper "
-        f"(max {max_pages} pages)"
+        f"(max {max_pages} pages, mode: {mode})"
     )
 
     scrape_date = datetime.datetime.now(datetime.UTC)
@@ -55,7 +74,13 @@ def scrape_to_bronze(
     # Get scraper class and instantiate it
     flow_logger.info(f"Initializing {scraper_type.value} scraper")
     scraper_class: type[BaseScraper] = scraper_type.get_scraper_class()
-    scraper = scraper_class(user_agent=user_agent, download_delay=download_delay)
+    scraper = scraper_class(
+        user_agent=user_agent,
+        download_delay=download_delay,
+        scraper_mode=mode,
+        days=days,
+        specific_date=specific_date,
+    )
 
     # Validate if city is supported by scraper
     if city not in scraper.SUPPORTED_CITIES:
@@ -66,7 +91,7 @@ def scrape_to_bronze(
         return FlowResult(
             status=FlowStatus.ERROR,
             scraper_type=scraper_type.value,
-            city=city.value,
+            city=city,
             error=f"City not supported by {scraper_type.value}",
         )
 
@@ -93,7 +118,7 @@ def scrape_to_bronze(
         return FlowResult(
             status=FlowStatus.COMPLETED_NO_DATA,
             scraper_type=scraper_type.value,
-            city=city.value,
+            city=city,
             pages_scraped=max_pages,
             scrape_date=scrape_date,
         )
@@ -108,6 +133,7 @@ def scrape_to_bronze(
         minio_endpoint=minio_endpoint,
         minio_access_key=minio_access_key,
         minio_secret_key=minio_secret_key,
+        environment=settings.environment.value,
         bucket_name=bucket_name,
         partition_date=scrape_date.strftime("%Y-%m-%d"),
     )
@@ -118,7 +144,7 @@ def scrape_to_bronze(
     return FlowResult(
         status=FlowStatus.SUCCESS,
         scraper_type=scraper_type.value,
-        city=city.value,
+        city=city,
         pages_scraped=max_pages,
         total_listings=total_listings,
         scrape_date=scrape_date,
@@ -128,5 +154,12 @@ def scrape_to_bronze(
 
 if __name__ == "__main__":
     # Example usage with Kijiji scraper
-    result = scrape_to_bronze(scraper_type=ScraperType.KIJIJI, city=City.TORONTO, max_pages=1)
+    result = scrape_to_bronze(
+        scraper_type=ScraperType.KIJIJI,
+        city=City.TORONTO,
+        max_pages=1,
+        mode=ScraperMode.SPECIFIC_DATE,
+        specific_date=date(2026, 2, 25),
+    )
+    # result = scrape_to_bronze(scraper_type=ScraperType.KIJIJI, city=City.TORONTO, max_pages=1, mode=ScraperMode.LAST_X_DAYS, days=1)
     print(f"Scraping result: {result}")

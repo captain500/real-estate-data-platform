@@ -1,33 +1,22 @@
 """Data models for real estate listings."""
 
 from datetime import UTC, datetime
-from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-
-class FlowStatus(StrEnum):
-    """Status of a scraping flow execution."""
-
-    SUCCESS = "success"
-    ERROR = "error"
-    COMPLETED_NO_DATA = "completed_no_data"
-
-
-class City(StrEnum):
-    """Supported cities for scraping."""
-
-    TORONTO = "toronto"
-    VANCOUVER = "vancouver"
-    LONDON = "london"
+from real_estate_data_platform.models.enums import City
 
 
 class RentalsListing(BaseModel):
     """Model for a single Rentals listing."""
 
     # Core identification
+    listing_id: str = Field(description="Native listing ID from the source site")
     url: str = Field(description="Listing URL")
     website: str = Field(description="Source website (e.g., 'kijiji')")
+    published_at: datetime | None = Field(
+        None, description="Original publish date from the listing"
+    )
     title: str = Field(description="Listing title")
     description: str = Field(description="Listing description")
 
@@ -105,26 +94,3 @@ class RentalsListing(BaseModel):
 
     # Metadata
     scraped_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-
-class ScrapingResult(BaseModel):
-    """Result of scraping a page."""
-
-    page_number: int = Field(..., description="Page number scraped")
-    city: City = Field(..., description="City scraped")
-    listings: list[RentalsListing] = Field(default_factory=list, description="Listings found")
-    total_listings: int = Field(..., description="Total listings on page")
-    error: str | None = Field(None, description="Error message if scraping failed")
-
-
-class FlowResult(BaseModel):
-    """Result of a scraping flow execution."""
-
-    status: FlowStatus = Field(..., description="Flow status: success, error, or completed_no_data")
-    scraper_type: str = Field(..., description="Type of scraper used")
-    city: City = Field(..., description="City scraped")
-    pages_scraped: int = Field(default=0, description="Number of pages scraped")
-    total_listings: int = Field(default=0, description="Total listings found")
-    scrape_date: datetime = Field(..., description="Date and time of scrape")
-    storage: dict | None = Field(None, description="Storage operation result metadata")
-    error: str | None = Field(None, description="Error message if flow failed")

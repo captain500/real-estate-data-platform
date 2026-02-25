@@ -8,11 +8,9 @@ from typing import TYPE_CHECKING
 from prefect import get_run_logger, task
 from prefect.tasks import task_input_hash
 
-from real_estate_data_platform.models.listings import (
-    City,
-    RentalsListing,
-    ScrapingResult,
-)
+from real_estate_data_platform.models.enums import City
+from real_estate_data_platform.models.listings import RentalsListing
+from real_estate_data_platform.models.responses import ScrapingResult
 
 if TYPE_CHECKING:
     from real_estate_data_platform.scrapers.base_scraper import BaseScraper
