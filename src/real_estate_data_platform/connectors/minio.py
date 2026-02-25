@@ -115,23 +115,24 @@ class MinIOStorage:
             data = [listing.model_dump() for listing in listings]
             df = pl.DataFrame(data)
 
-            # Convert DataFrame to Parquet bytes
+            # Write DataFrame to Parquet buffer
             buffer = io.BytesIO()
             df.write_parquet(buffer)
-            parquet_bytes = buffer.getvalue()
+            file_size = buffer.getbuffer().nbytes
+            buffer.seek(0)  # Reset pointer to start for upload
 
             # Upload to MinIO
             self.client.put_object(
                 bucket_name=self.bucket_name,
                 object_name=object_path,
-                data=io.BytesIO(parquet_bytes),
-                length=len(parquet_bytes),
+                data=buffer,
+                length=file_size,
                 content_type="application/octet-stream",
             )
 
             result = StorageResult(
                 status=OperationStatus.SUCCESS,
-                path=f"s3://{self.bucket_name}/{object_path}",
+                path=f"{self.bucket_name}/{object_path}",
                 count=len(listings),
             )
 
