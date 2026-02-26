@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from real_estate_data_platform.models.enums import City
 
@@ -14,9 +14,7 @@ class RentalsListing(BaseModel):
     listing_id: str = Field(description="Native listing ID from the source site")
     url: str = Field(description="Listing URL")
     website: str = Field(description="Source website (e.g., 'kijiji')")
-    published_at: datetime | None = Field(
-        None, description="Original publish date from the listing"
-    )
+    published_at: datetime = Field(description="Original publish date from the listing")
     title: str = Field(description="Listing title")
     description: str = Field(description="Listing description")
 
@@ -94,3 +92,35 @@ class RentalsListing(BaseModel):
 
     # Metadata
     scraped_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Validate URL format."""
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
+    @field_validator("published_at")
+    @classmethod
+    def validate_published_date(cls, v: datetime) -> datetime:
+        """Validate published_at is not in the future."""
+        if v > datetime.now(UTC):
+            raise ValueError("published_at cannot be in the future")
+        return v
+
+    @field_validator("latitude")
+    @classmethod
+    def validate_latitude(cls, v: float | None) -> float | None:
+        """Validate latitude is within valid range."""
+        if v is not None and not (-90 <= v <= 90):
+            raise ValueError("Latitude must be between -90 and 90")
+        return v
+
+    @field_validator("longitude")
+    @classmethod
+    def validate_longitude(cls, v: float | None) -> float | None:
+        """Validate longitude is within valid range."""
+        if v is not None and not (-180 <= v <= 180):
+            raise ValueError("Longitude must be between -180 and 180")
+        return v
