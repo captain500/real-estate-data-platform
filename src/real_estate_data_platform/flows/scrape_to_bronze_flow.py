@@ -104,10 +104,8 @@ def scrape_to_bronze(
 
     # Aggregate results from all pages
     flow_logger.info("Aggregating results from all pages")
-
     all_listings, failed_pages = aggregate_results(page_results)
     total_listings = len(all_listings)
-
     flow_logger.info(f"Total listings aggregated: {total_listings}")
 
     if total_listings == 0:

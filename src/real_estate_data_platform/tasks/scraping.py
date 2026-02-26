@@ -71,14 +71,14 @@ def fetch_and_parse_page(
 
 
 @task
-def aggregate_results(results: list[ScrapingResult]) -> tuple[list[RentalsListing], int, int]:
+def aggregate_results(results: list[ScrapingResult]) -> tuple[list[RentalsListing], int]:
     """Aggregate results from multiple pages into a single list.
 
     Args:
         results: List of ScrapingResult objects from different pages
 
     Returns:
-        Tuple of (all_listings, successful_pages, failed_pages)
+        Tuple of (all_listings, failed_pages)
     """
     task_logger = get_run_logger()
 

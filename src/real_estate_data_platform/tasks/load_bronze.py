@@ -30,10 +30,8 @@ def save_listings_to_minio(
 ) -> StorageResult:
     """Save listings to MinIO as Parquet with JSON metadata.
 
-    Orchestrates storage operations using generic MinIO methods:
-    1. Converts RentalsListing objects to Polars DataFrame
-    2. Saves Parquet file with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/listings_{YYYYMMDD}.parquet
-    3. Saves metadata JSON with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/_metadata.json
+    1. Saves Parquet file with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/listings_{YYYYMMDD}.parquet
+    2. Saves metadata JSON with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/_metadata.json
 
     Args:
         listings: List of RentalsListing objects
@@ -88,7 +86,7 @@ def save_listings_to_minio(
             "specific_date": specific_date if specific_date else None,
             "max_pages": max_pages,
             "record_count": len(listings),
-            "saved_at": datetime.now(UTC).isoformat(),
+            "saved_at": datetime.now(UTC),
         }
 
         # Save metadata JSON
