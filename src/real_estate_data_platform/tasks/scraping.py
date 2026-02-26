@@ -56,9 +56,7 @@ def fetch_and_parse_page(
 
         result = ScrapingResult(
             page_number=page,
-            city=city.value,
             listings=listings,
-            total_listings=len(listings),
         )
 
         return result
@@ -67,39 +65,33 @@ def fetch_and_parse_page(
         task_logger.error(f"Error scraping page {page}: {e}")
         return ScrapingResult(
             page_number=page,
-            city=city.value,
-            total_listings=0,
             listings=[],
             error=str(e),
         )
 
 
 @task
-def aggregate_results(results: list[ScrapingResult]) -> list[RentalsListing]:
+def aggregate_results(results: list[ScrapingResult]) -> tuple[list[RentalsListing], int, int]:
     """Aggregate results from multiple pages into a single list.
 
     Args:
         results: List of ScrapingResult objects from different pages
 
     Returns:
-        Combined list of all RentalsListing objects
+        Tuple of (all_listings, successful_pages, failed_pages)
     """
     task_logger = get_run_logger()
 
     all_listings = []
-    error_count = 0
+    failed_pages = 0
 
     for result in results:
         if result.error:
             task_logger.warning(f"Page {result.page_number} had error: {result.error}")
-            error_count += 1
-        all_listings.extend(result.listings)
+            failed_pages += 1
+        else:
+            all_listings.extend(result.listings)
 
-    if error_count > 0:
-        task_logger.info(
-            f"Aggregated {len(all_listings)} listings ({error_count} pages with errors)"
-        )
-    else:
-        task_logger.info(f"Aggregated {len(all_listings)} listings from all pages")
+    task_logger.info(f"Aggregated {len(all_listings)} listings ")
 
-    return all_listings
+    return all_listings, failed_pages

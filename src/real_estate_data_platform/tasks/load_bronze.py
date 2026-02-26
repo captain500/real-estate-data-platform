@@ -1,9 +1,13 @@
 """Prefect tasks for storage operations (MinIO, etc)."""
 
+from datetime import UTC, date, datetime
+
+import polars as pl
 from prefect import get_run_logger, task
 
 from real_estate_data_platform.config.settings import Environment
 from real_estate_data_platform.connectors.minio import MinIOStorage
+from real_estate_data_platform.models.enums import OperationStatus, ScraperMode
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import StorageResult
 
@@ -17,15 +21,19 @@ def save_listings_to_minio(
     minio_access_key: str,
     minio_secret_key: str,
     partition_date: str,
+    max_pages: int,
+    mode: ScraperMode,
+    days: int,
+    specific_date: date | None = None,
     environment: str = Environment.DEV.value,
     bucket_name: str = "raw",
-    metadata: dict | None = None,
 ) -> StorageResult:
-    """Save listings to MinIO as Parquet with partitioning.
+    """Save listings to MinIO as Parquet with JSON metadata.
 
-    Stores files with structure:
-    - `s3://{bucket_name}/listings/source={source}/city={city}/dt={date}/listings_{YYYYMMDD}.parquet`
-    - `s3://{bucket_name}/listings/source={source}/city={city}/dt={date}/_metadata.json`
+    Orchestrates storage operations using generic MinIO methods:
+    1. Converts RentalsListing objects to Polars DataFrame
+    2. Saves Parquet file with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/listings_{YYYYMMDD}.parquet
+    3. Saves metadata JSON with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/_metadata.json
 
     Args:
         listings: List of RentalsListing objects
@@ -35,9 +43,12 @@ def save_listings_to_minio(
         minio_access_key: MinIO access key
         minio_secret_key: MinIO secret key
         partition_date: Date string for partition (YYYY-MM-DD)
+        max_pages: Maximum number of pages scraped
+        mode: ScraperMode used (last_x_days or specific_date)
+        days: Number of days if mode is last_x_days
+        specific_date: Specific date if mode is specific_date
         environment: Application environment ('dev' or 'prod'). Default: 'dev'
         bucket_name: S3 bucket name. Default: 'raw'
-        metadata: Additional metadata to persist alongside the parquet file
 
     Returns:
         StorageResult with metadata about saved files and operation status
@@ -54,17 +65,44 @@ def save_listings_to_minio(
             secure=(environment == Environment.PROD.value),
         )
 
-        # Save listings
-        result = storage.save_listings(
-            listings=listings,
-            source=source,
-            city=city,
-            partition_date=partition_date,
-            environment=environment,
-            extra_metadata=metadata,
+        # Prepare file paths
+        datestamp = partition_date.replace("-", "")
+        base_dir = f"listings/source={source}/city={city}/dt={partition_date}"
+        parquet_path = f"{base_dir}/listings_{datestamp}.parquet"
+        metadata_path = f"{base_dir}/_metadata.json"
+
+        # Convert RentalsListing objects to Polars DataFrame
+        data = [listing.model_dump() for listing in listings]
+        df = pl.DataFrame(data)
+
+        # Save Parquet file
+        storage.save_parquet(
+            dataframe=df,
+            object_name=parquet_path,
         )
 
-        return result
+        # Build metadata
+        metadata_dict = {
+            "mode": mode.value,
+            "days": days,
+            "specific_date": specific_date if specific_date else None,
+            "max_pages": max_pages,
+            "record_count": len(listings),
+            "saved_at": datetime.now(UTC).isoformat(),
+        }
+
+        # Save metadata JSON
+        storage.save_json(
+            data=metadata_dict,
+            object_name=metadata_path,
+        )
+
+        task_logger.info(f"Successfully saved {len(listings)} listings to {parquet_path}")
+        return StorageResult(
+            status=OperationStatus.SUCCESS,
+            path=f"{bucket_name}/{parquet_path}",
+            count=len(listings),
+        )
 
     except Exception as e:
         task_logger.error(f"Error saving listings to MinIO: {e}")

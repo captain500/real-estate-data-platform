@@ -3,15 +3,10 @@
 import io
 import json
 import logging
-from datetime import UTC, datetime
 
 import polars as pl
 from minio import Minio
 from minio.error import S3Error
-
-from real_estate_data_platform.models.enums import OperationStatus
-from real_estate_data_platform.models.listings import RentalsListing
-from real_estate_data_platform.models.responses import StorageResult
 
 logger = logging.getLogger(__name__)
 
@@ -62,140 +57,75 @@ class MinIOStorage:
             logger.error(f"Error checking/creating bucket: {e}")
             raise
 
-    def _get_object_paths(
+    def save_parquet(
         self,
-        source: str,
-        city: str,
-        partition_date: str,
-    ) -> tuple[str, str, str]:
-        """Generate object paths for the Parquet file and metadata.
-
-        Structure:
-        - listings/source={source}/city={city}/dt={date}/listings_{datestamp}.parquet
-        - listings/source={source}/city={city}/dt={date}/_metadata.json
+        dataframe: pl.DataFrame,
+        object_name: str,
+    ) -> None:
+        """Save a Polars DataFrame as Parquet to MinIO.
 
         Args:
-            source: Data source name
-            city: City name
-            partition_date: Date string (YYYY-MM-DD)
-
-        Returns:
-            Tuple with (parquet_path, metadata_path, datestamp)
+            dataframe: Polars DataFrame to save
+            object_name: S3 object path (e.g., 'listings/source=kijiji/city=toronto/dt=2025-02-26/listings_20250226.parquet')
         """
-        datestamp = partition_date.replace("-", "")
-        base_dir = f"listings/source={source}/city={city}/dt={partition_date}"
-        parquet_path = f"{base_dir}/listings_{datestamp}.parquet"
-        metadata_path = f"{base_dir}/_metadata.json"
-        return parquet_path, metadata_path, datestamp
-
-    def save_listings(
-        self,
-        listings: list[RentalsListing],
-        source: str,
-        city: str,
-        partition_date: str,
-        environment: str | None = None,
-        extra_metadata: dict | None = None,
-    ) -> StorageResult:
-        """Save listings to MinIO as Parquet.
-
-        Args:
-            listings: List of RentalsListing objects
-            source: Data source name (e.g., 'kijiji')
-            city: City name
-            partition_date: Date string (YYYY-MM-DD)
-            environment: Application environment label
-            extra_metadata: Optional additional metadata to persist alongside the file
-
-        Returns:
-            StorageResult with operation metadata
-        """
-        if not listings:
-            logger.warning("No listings to save, skipping...")
-            return StorageResult(
-                status=OperationStatus.SKIPPED,
-                reason="Empty listings",
-                count=0,
-            )
-
-        parquet_path, metadata_path, datestamp = self._get_object_paths(
-            source, city, partition_date
-        )
-
-        metadata = {
-            "bucket": self.bucket_name,
-            "path": f"{self.bucket_name}/{parquet_path}",
-            "record_count": len(listings),
-            "source": source,
-            "city": city,
-            "partition_date": partition_date,
-            "datestamp": datestamp,
-            "environment": environment,
-            "saved_at": datetime.now(UTC).isoformat(),
-        }
-
-        if extra_metadata:
-            metadata.update({k: v for k, v in extra_metadata.items() if v is not None})
-
         try:
-            # Convert RentalsListing objects to Polars DataFrame
-            data = [listing.model_dump() for listing in listings]
-            df = pl.DataFrame(data)
-
             # Write DataFrame to Parquet buffer
             buffer = io.BytesIO()
-            df.write_parquet(buffer)
+            dataframe.write_parquet(buffer)
             file_size = buffer.getbuffer().nbytes
-            buffer.seek(0)  # Reset pointer to start for upload
+            buffer.seek(0)
 
             # Upload Parquet file to MinIO
             self.client.put_object(
                 bucket_name=self.bucket_name,
-                object_name=parquet_path,
+                object_name=object_name,
                 data=buffer,
                 length=file_size,
                 content_type="application/octet-stream",
             )
 
-            # Upload metadata JSON alongside the parquet file
-            metadata_buffer = io.BytesIO(json.dumps(metadata, default=str).encode("utf-8"))
-            metadata_size = metadata_buffer.getbuffer().nbytes
-            metadata_buffer.seek(0)
+            full_path = f"{self.bucket_name}/{object_name}"
+            logger.info(f"Successfully saved Parquet file to {full_path}")
 
+        except S3Error as e:
+            logger.error(f"Error saving Parquet file to MinIO: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error saving Parquet file: {e}")
+            raise
+
+    def save_json(
+        self,
+        data: dict,
+        object_name: str,
+    ) -> None:
+        """Save a dictionary as JSON to MinIO.
+
+        Args:
+            data: Dictionary to serialize and save
+            object_name: S3 object path (e.g., 'listings/source=kijiji/city=toronto/dt=2025-02-26/_metadata.json')
+        """
+        try:
+            # Serialize dict to JSON bytes
+            json_bytes = json.dumps(data, default=str).encode("utf-8")
+            json_buffer = io.BytesIO(json_bytes)
+            file_size = len(json_bytes)
+
+            # Upload JSON file to MinIO
             self.client.put_object(
                 bucket_name=self.bucket_name,
-                object_name=metadata_path,
-                data=metadata_buffer,
-                length=metadata_size,
+                object_name=object_name,
+                data=json_buffer,
+                length=file_size,
                 content_type="application/json",
             )
 
-            result = StorageResult(
-                status=OperationStatus.SUCCESS,
-                path=f"{self.bucket_name}/{parquet_path}",
-                metadata_path=f"{self.bucket_name}/{metadata_path}",
-                metadata=metadata,
-                count=len(listings),
-            )
-
-            logger.info(f"Successfully saved {len(listings)} listings to {parquet_path}")
-            return result
+            full_path = f"{self.bucket_name}/{object_name}"
+            logger.info(f"Successfully saved JSON file to {full_path}")
 
         except S3Error as e:
-            logger.error(f"Error saving listings to MinIO: {e}")
-            return StorageResult(
-                status=OperationStatus.FAILED,
-                path=parquet_path,
-                metadata_path=metadata_path,
-                reason=str(e),
-                count=0,
-            )
+            logger.error(f"Error saving JSON file to MinIO: {e}")
+            raise
         except Exception as e:
-            logger.error(f"Unexpected error saving listings: {e}")
-            return StorageResult(
-                status=OperationStatus.FAILED,
-                path=parquet_path,
-                metadata_path=metadata_path,
-                reason=f"Unexpected error: {str(e)}",
-                count=0,
-            )
+            logger.error(f"Unexpected error saving JSON file: {e}")
+            raise

@@ -1,7 +1,6 @@
 """Prefect flow for scraping rental listings."""
 
 import datetime
-import time
 from datetime import date
 
 from prefect import flow, get_run_logger
@@ -47,22 +46,13 @@ def scrape_to_bronze(
         ScrapeToBronzeResult with scraping metadata and results
     """
     flow_logger = get_run_logger()
-    flow_start_time = time.time()
 
     # Validate parameters
-    if mode == ScraperMode.SPECIFIC_DATE and specific_date is None:
+    if mode == ScraperMode.SPECIFIC_DATE and not specific_date:
         error_msg = "specific_date is required when mode is SPECIFIC_DATE"
         flow_logger.error(error_msg)
-        duration = time.time() - flow_start_time
         return ScrapeToBronzeResult(
             status=FlowStatus.ERROR,
-            scraper_type=scraper_type.value,
-            city=city,
-            mode=mode,
-            scrape_date=datetime.datetime.now(datetime.UTC),
-            days=days,
-            specific_date=specific_date,
-            duration=duration,
             error=error_msg,
         )
 
@@ -94,24 +84,11 @@ def scrape_to_bronze(
 
     # Validate if city is supported by scraper
     if city not in scraper.SUPPORTED_CITIES:
-        flow_logger.error(
-            f"City '{city.value}' not supported by {scraper_type.value}. "
-            f"Supported cities: {[c.value for c in scraper.SUPPORTED_CITIES.keys()]}"
-        )
-        duration = time.time() - flow_start_time
+        error_msg = f"City not supported by {scraper_type.value}"
+        flow_logger.error(error_msg)
         return ScrapeToBronzeResult(
             status=FlowStatus.ERROR,
-            scraper_type=scraper_type.value,
-            city=city,
-            mode=mode,
-            pages_scraped=0,
-            successful_pages=0,
-            failed_pages=0,
-            scrape_date=datetime.datetime.now(datetime.UTC),
-            days=days,
-            specific_date=specific_date,
-            duration=duration,
-            error=f"City not supported by {scraper_type.value}",
+            error=error_msg,
         )
 
     # Fetch pages
@@ -127,45 +104,21 @@ def scrape_to_bronze(
 
     # Aggregate results from all pages
     flow_logger.info("Aggregating results from all pages")
-    all_listings = aggregate_results(page_results)
-    # Count successful and failed pages
-    successful_pages = sum(1 for result in page_results if result.success)
-    failed_pages = sum(1 for result in page_results if not result.success)
+
+    all_listings, failed_pages = aggregate_results(page_results)
     total_listings = len(all_listings)
+
     flow_logger.info(f"Total listings aggregated: {total_listings}")
 
     if total_listings == 0:
         flow_logger.warning("No listings found to save")
         scraper.close()
-        duration = time.time() - flow_start_time
         return ScrapeToBronzeResult(
             status=FlowStatus.COMPLETED_NO_DATA,
-            scraper_type=scraper_type.value,
-            city=city,
-            mode=mode,
-            pages_scraped=max_pages,
-            successful_pages=successful_pages,
-            failed_pages=failed_pages,
-            scrape_date=scrape_date,
-            days=days,
-            specific_date=specific_date,
-            duration=duration,
         )
 
     # Save to MinIO (raw bucket)
     flow_logger.info("Saving listings to MinIO")
-
-    storage_metadata = {
-        "mode": mode.value,
-        "days": days,
-        "specific_date": specific_date.isoformat() if specific_date else None,
-        "scrape_date": scrape_date.isoformat(),
-        "pages": {
-            "attempted": max_pages,
-            "successful": successful_pages,
-            "failed": failed_pages,
-        },
-    }
 
     storage_result = save_listings_to_minio(
         listings=all_listings,
@@ -175,28 +128,21 @@ def scrape_to_bronze(
         minio_access_key=minio_access_key,
         minio_secret_key=minio_secret_key,
         partition_date=format_date(scrape_date),
+        max_pages=max_pages,
+        mode=mode,
+        days=days,
+        specific_date=specific_date,
         environment=settings.environment.value,
         bucket_name=bucket_name,
-        metadata=storage_metadata,
     )
 
     scraper.close()
     flow_logger.info("Scraping flow completed successfully")
-    duration = time.time() - flow_start_time
 
     return ScrapeToBronzeResult(
         status=FlowStatus.SUCCESS,
-        scraper_type=scraper_type.value,
-        city=city,
-        mode=mode,
-        pages_scraped=max_pages,
-        successful_pages=successful_pages,
+        successful_pages=total_listings,
         failed_pages=failed_pages,
-        total_listings=total_listings,
-        scrape_date=scrape_date,
-        days=days,
-        specific_date=specific_date,
-        duration=duration,
         storage=storage_result,
     )
 
