@@ -1,6 +1,7 @@
 """Response/result models for operations."""
 
 from datetime import date, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +14,8 @@ class StorageResult(BaseModel):
 
     status: OperationStatus = Field(..., description="Operation status")
     path: str | None = Field(None, description="S3 object path")
+    metadata_path: str | None = Field(None, description="S3 metadata object path")
+    metadata: dict[str, Any] | None = Field(None, description="Metadata saved alongside the object")
     count: int = Field(default=0, description="Number of items stored")
     reason: str | None = Field(None, description="Reason for skip/failure")
 

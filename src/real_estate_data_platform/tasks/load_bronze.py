@@ -19,11 +19,13 @@ def save_listings_to_minio(
     partition_date: str,
     environment: str = Environment.DEV.value,
     bucket_name: str = "raw",
+    metadata: dict | None = None,
 ) -> StorageResult:
     """Save listings to MinIO as Parquet with partitioning.
 
     Stores files with structure:
-    `s3://{bucket_name}/listings/source={source}/city={city}/dt={date}/data.parquet`
+    - `s3://{bucket_name}/listings/source={source}/city={city}/dt={date}/listings_{YYYYMMDD}.parquet`
+    - `s3://{bucket_name}/listings/source={source}/city={city}/dt={date}/_metadata.json`
 
     Args:
         listings: List of RentalsListing objects
@@ -35,6 +37,7 @@ def save_listings_to_minio(
         partition_date: Date string for partition (YYYY-MM-DD)
         environment: Application environment ('dev' or 'prod'). Default: 'dev'
         bucket_name: S3 bucket name. Default: 'raw'
+        metadata: Additional metadata to persist alongside the parquet file
 
     Returns:
         StorageResult with metadata about saved files and operation status
@@ -57,6 +60,8 @@ def save_listings_to_minio(
             source=source,
             city=city,
             partition_date=partition_date,
+            environment=environment,
+            extra_metadata=metadata,
         )
 
         return result

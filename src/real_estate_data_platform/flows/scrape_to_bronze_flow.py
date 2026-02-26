@@ -155,6 +155,18 @@ def scrape_to_bronze(
     # Save to MinIO (raw bucket)
     flow_logger.info("Saving listings to MinIO")
 
+    storage_metadata = {
+        "mode": mode.value,
+        "days": days,
+        "specific_date": specific_date.isoformat() if specific_date else None,
+        "scrape_date": scrape_date.isoformat(),
+        "pages": {
+            "attempted": max_pages,
+            "successful": successful_pages,
+            "failed": failed_pages,
+        },
+    }
+
     storage_result = save_listings_to_minio(
         listings=all_listings,
         source=scraper_type.value,
@@ -165,6 +177,7 @@ def scrape_to_bronze(
         partition_date=format_date(scrape_date),
         environment=settings.environment.value,
         bucket_name=bucket_name,
+        metadata=storage_metadata,
     )
 
     scraper.close()
