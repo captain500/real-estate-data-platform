@@ -48,19 +48,19 @@ class BaseScraper(ABC):
 
     @property
     @abstractmethod
-    def NAME_WEBSITE(self) -> str:
+    def name_website(self) -> str:
         """Name of the scraper (e.g: 'kijiji')."""
         pass
 
     @property
     @abstractmethod
-    def BASE_URL(self) -> str:
+    def base_url(self) -> str:
         """URL of the website (e.g: 'https://www.kijiji.ca')."""
         pass
 
     @property
     @abstractmethod
-    def SUPPORTED_CITIES(self) -> dict[City, str]:
+    def supported_cities(self) -> dict[City, str]:
         """Mapping of City enum values to web-specific slugs/IDs."""
         pass
 
@@ -144,9 +144,6 @@ class BaseScraper(ABC):
         Returns:
             True if listing should be included, False otherwise
         """
-        if listing.published_at is None:
-            return False
-
         if self.scraper_mode == ScraperMode.LAST_X_DAYS:
             cutoff_date = datetime.now(UTC) - timedelta(days=self.days)
             return listing.published_at >= cutoff_date

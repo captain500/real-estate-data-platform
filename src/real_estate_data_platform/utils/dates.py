@@ -34,19 +34,3 @@ def format_date(date: datetime | None = None) -> str:
     if date is None:
         date = datetime.now(UTC)
     return date.strftime("%Y-%m-%d")
-
-
-def format_timestamp(date: datetime | None = None) -> str:
-    """Format timestamp in compact format (YYYYMMDD_HHMMSS).
-
-    Used to create unique filenames like: listings_20260225_143022.parquet
-
-    Args:
-        date: DateTime object. If None, uses current datetime.
-
-    Returns:
-        Formatted timestamp string (YYYYMMDD_HHMMSS)
-    """
-    if date is None:
-        date = datetime.now(UTC)
-    return date.strftime("%Y%m%d_%H%M%S")

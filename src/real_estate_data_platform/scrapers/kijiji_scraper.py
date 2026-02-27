@@ -5,7 +5,9 @@ import logging
 import random
 from time import sleep
 
+import requests
 from bs4 import BeautifulSoup
+from pydantic import ValidationError
 
 from real_estate_data_platform.models.enums import City
 from real_estate_data_platform.models.listings import RentalsListing
@@ -60,15 +62,15 @@ class KijijiScraper(BaseScraper):
     """Scraper for Kijiji.ca rental listings."""
 
     @property
-    def NAME_WEBSITE(self) -> str:
+    def name_website(self) -> str:
         return "kijiji"
 
     @property
-    def BASE_URL(self) -> str:
+    def base_url(self) -> str:
         return "https://www.kijiji.ca/b-apartments-condos"
 
     @property
-    def SUPPORTED_CITIES(self) -> dict[City, str]:
+    def supported_cities(self) -> dict[City, str]:
         return {
             City.TORONTO: "city-of-toronto/c37l1700273",
             City.VANCOUVER: "vancouver/c37l1700287",
@@ -89,8 +91,8 @@ class KijijiScraper(BaseScraper):
             requests.HTTPError: If HTTP request fails
             ValueError: If city not supported
         """
-        city_path = self.SUPPORTED_CITIES[city]
-        url = f"{self.BASE_URL}/{city_path}"
+        city_path = self.supported_cities[city]
+        url = f"{self.base_url}/{city_path}"
 
         logger.info("Fetching %s (page %d)", url, page)
         response = self.session.get(url, params={"page": page}, timeout=10)
@@ -146,9 +148,6 @@ class KijijiScraper(BaseScraper):
                     failed_count += 1
                 if self.download_delay > 0:
                     sleep(self.download_delay * random.uniform(0.5, 1.5))
-                # TODO: Remove this break after testing
-                if len(listings) >= 8:
-                    break
         except Exception:
             logger.exception("Error parsing search page for %s", city.value)
 
@@ -209,7 +208,7 @@ class KijijiScraper(BaseScraper):
             listing = RentalsListing(
                 listing_id=str(listing_id),
                 url=url,
-                website=self.NAME_WEBSITE,
+                website=self.name_website,
                 published_at=published_at,
                 title=listing_data.get("title"),
                 description=listing_data.get("description"),
@@ -232,8 +231,11 @@ class KijijiScraper(BaseScraper):
             )
             return listing
 
-        except Exception:
-            logger.exception("Error parsing listing %s", url)
+        except requests.RequestException:
+            logger.exception("HTTP error fetching listing %s", url)
+            return None
+        except (json.JSONDecodeError, KeyError, TypeError, ValidationError) as exc:
+            logger.warning("Failed to parse listing data for %s: %s", url, type(exc).__name__)
             return None
 
     def _extract_json_ld(self, soup: BeautifulSoup) -> dict | None:
@@ -285,7 +287,7 @@ class KijijiScraper(BaseScraper):
         Returns:
             Tuple of (neighbourhood_name, scores_dict)
         """
-        neighbourhood = "N/A"
+        neighbourhood = None
         scores = {"walk_score": None, "transit_score": None, "bike_score": None}
 
         neighbourhood_ref = (
@@ -294,7 +296,7 @@ class KijijiScraper(BaseScraper):
 
         if neighbourhood_ref and neighbourhood_ref in apollo_state:
             neighbourhood_data = apollo_state[neighbourhood_ref]
-            neighbourhood = neighbourhood_data.get("name", "N/A")
+            neighbourhood = neighbourhood_data.get("name")
 
             transport_scores = neighbourhood_data.get("scores", {}).get("transportation", {})
             scores = {

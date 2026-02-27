@@ -40,7 +40,6 @@ class ScrapingResult(_BaseResult):
     page_number: int
     listings: list[RentalsListing] = Field(default_factory=list)
     failed_listings: int = 0
-    error: str | None = None
 
 
 class ScrapeToBronzeResult(_BaseResult):
