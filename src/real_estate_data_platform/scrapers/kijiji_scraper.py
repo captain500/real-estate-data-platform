@@ -92,7 +92,7 @@ class KijijiScraper(BaseScraper):
         city_path = self.SUPPORTED_CITIES[city]
         url = f"{self.BASE_URL}/{city_path}"
 
-        logger.info(f"Fetching {url} (page {page})")
+        logger.info("Fetching %s (page %d)", url, page)
         response = self.session.get(url, params={"page": page}, timeout=10)
         response.raise_for_status()
 
@@ -111,8 +111,8 @@ class KijijiScraper(BaseScraper):
         try:
             url = listing_elem.get("item", {}).get("url")
             return self._parse_listing_detail(url, city) if url else None
-        except Exception as e:
-            logger.warning(f"Error parsing search listing: {e}")
+        except Exception:
+            logger.exception("Error parsing search listing")
             return None
 
     def _parse_page_impl(
@@ -134,7 +134,7 @@ class KijijiScraper(BaseScraper):
         try:
             data = self._extract_json_ld(soup)
             if not data:
-                logger.warning(f"No JSON-LD data found for {city.value} search page")
+                logger.warning("No JSON-LD data found for %s search page", city.value)
                 return listings
 
             for item in data.get("itemListElement", []):
@@ -146,8 +146,8 @@ class KijijiScraper(BaseScraper):
                 # TODO: Remove this break after testing
                 if len(listings) >= 8:
                     break
-        except Exception as e:
-            logger.error(f"Error parsing search page for {city.value}: {e}")
+        except Exception:
+            logger.exception("Error parsing search page for %s", city.value)
 
         return listings
 
@@ -162,7 +162,7 @@ class KijijiScraper(BaseScraper):
             RentalsListing object or None if parsing fails
         """
         try:
-            logger.info(f"Fetching listing: {url}")
+            logger.info("Fetching listing: %s", url)
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
 
@@ -170,7 +170,7 @@ class KijijiScraper(BaseScraper):
             script = soup.find("script", id="__NEXT_DATA__")
 
             if not script or not script.string:
-                logger.warning(f"No __NEXT_DATA__ script found for {url}")
+                logger.warning("No __NEXT_DATA__ script found for %s", url)
                 return None
 
             data = json.loads(script.string)
@@ -178,14 +178,14 @@ class KijijiScraper(BaseScraper):
             listing_id = page_props.get("listingId")
 
             if not listing_id:
-                logger.warning(f"No listing ID found for {url}")
+                logger.warning("No listing ID found for %s", url)
                 return None
 
             apollo_state = page_props.get("__APOLLO_STATE__", {})
             listing_data = apollo_state.get(f"RealEstateListing:{listing_id}", {})
 
             if not listing_data:
-                logger.warning(f"No listing data found for {listing_id}")
+                logger.warning("No listing data found for %s", listing_id)
                 return None
 
             # Extract and map attributes
@@ -229,8 +229,8 @@ class KijijiScraper(BaseScraper):
             )
             return listing
 
-        except Exception as e:
-            logger.warning(f"Error parsing listing {url}: {e}")
+        except Exception:
+            logger.exception("Error parsing listing %s", url)
             return None
 
     def _extract_json_ld(self, soup: BeautifulSoup) -> dict | None:

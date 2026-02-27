@@ -48,7 +48,7 @@ def save_listings_to_minio(
     Returns:
         StorageResult with metadata about saved files and operation status
     """
-    task_logger = get_run_logger()
+    logger = get_run_logger()
 
     try:
         # Initialize storage backend
@@ -92,7 +92,7 @@ def save_listings_to_minio(
             object_name=metadata_path,
         )
 
-        task_logger.info(f"Successfully saved {len(listings)} listings to {parquet_path}")
+        logger.info(f"Successfully saved {len(listings)} listings to {parquet_path}")
         return StorageResult(
             status=OperationStatus.SUCCESS,
             path=f"{bucket_name}/{parquet_path}",
@@ -100,5 +100,5 @@ def save_listings_to_minio(
         )
 
     except Exception as e:
-        task_logger.error(f"Error saving listings to MinIO: {e}")
+        logger.error(f"Error saving listings to MinIO: {e}", exc_info=True)
         raise

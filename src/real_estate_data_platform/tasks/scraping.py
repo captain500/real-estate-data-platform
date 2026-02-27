@@ -37,12 +37,10 @@ def fetch_and_parse_page(
     Returns:
         ScrapingResult containing parsed listings
     """
-    task_logger = get_run_logger()
+    logger = get_run_logger()
 
     try:
-        task_logger.info(
-            f"Fetching page {page} for {city.value} using {scraper.__class__.__name__}"
-        )
+        logger.info(f"Fetching page {page} for {city.value} using {scraper.__class__.__name__}")
 
         # Fetch page
         soup = scraper.get_page(city=city, page=page)
@@ -50,7 +48,7 @@ def fetch_and_parse_page(
         # Parse listings of house for rent
         listings = scraper.parse_page(soup=soup, city=city)
 
-        task_logger.info(f"Parsed {len(listings)} listings from page {page}")
+        logger.info(f"Parsed {len(listings)} listings from page {page}")
 
         result = ScrapingResult(
             page_number=page,
@@ -60,7 +58,7 @@ def fetch_and_parse_page(
         return result
 
     except Exception as e:
-        task_logger.error(f"Error scraping page {page}: {e}")
+        logger.error(f"Error scraping page {page}: {e}", exc_info=True)
         return ScrapingResult(
             page_number=page,
             listings=[],
@@ -78,18 +76,18 @@ def aggregate_results(results: list[ScrapingResult]) -> tuple[list[RentalsListin
     Returns:
         Tuple of (all_listings, failed_pages)
     """
-    task_logger = get_run_logger()
+    logger = get_run_logger()
 
     all_listings = []
     failed_pages = 0
 
     for result in results:
         if result.error:
-            task_logger.warning(f"Page {result.page_number} had error: {result.error}")
+            logger.warning(f"Page {result.page_number} had error: {result.error}")
             failed_pages += 1
         else:
             all_listings.extend(result.listings)
 
-    task_logger.info(f"Aggregated {len(all_listings)} listings ")
+    logger.info(f"Aggregated {len(all_listings)} listings")
 
     return all_listings, failed_pages

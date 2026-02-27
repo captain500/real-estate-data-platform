@@ -175,7 +175,7 @@ class BaseScraper(ABC):
         filtered_count = len(listings) - len(filtered_listings)
 
         if filtered_count > 0:
-            logger.info(f"Filtered out {filtered_count} listings by date for {city}")
+            logger.info("Filtered out %d listings by date for %s", filtered_count, city)
 
         return filtered_listings
 

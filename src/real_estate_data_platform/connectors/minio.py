@@ -48,9 +48,9 @@ class MinIOStorage:
         try:
             if not self.client.bucket_exists(self.bucket_name):
                 self.client.make_bucket(self.bucket_name)
-                logger.info(f"Created bucket: {self.bucket_name}")
-        except S3Error as e:
-            logger.error(f"Error checking/creating bucket: {e}")
+                logger.info("Created bucket: %s", self.bucket_name)
+        except S3Error:
+            logger.exception("Error checking/creating bucket '%s'", self.bucket_name)
             raise
 
     def _upload(self, buffer: io.BytesIO, object_name: str, content_type: str) -> None:
@@ -71,9 +71,9 @@ class MinIOStorage:
                 length=size,
                 content_type=content_type,
             )
-            logger.info(f"Saved {self.bucket_name}/{object_name}")
-        except S3Error as e:
-            logger.error(f"S3 error uploading {object_name}: {e}")
+            logger.info("Saved %s/%s", self.bucket_name, object_name)
+        except S3Error:
+            logger.exception("S3 error uploading %s", object_name)
             raise
 
     def save_parquet(self, dataframe: pl.DataFrame, object_name: str) -> None:
