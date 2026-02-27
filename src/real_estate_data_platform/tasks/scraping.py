@@ -26,7 +26,6 @@ def fetch_and_parse_page(
     scraper: BaseScraper,
     city: City,
     page: int,
-    download_delay: float = 2.0,
 ) -> ScrapingResult:
     """Fetch and parse a single page using the provided scraper.
 
@@ -34,7 +33,6 @@ def fetch_and_parse_page(
         scraper: Instance of a BaseScraper subclass (e.g., KijijiScraper)
         city: City to scrape (City enum)
         page: Page number
-        download_delay: Delay between requests
 
     Returns:
         ScrapingResult containing parsed listings
@@ -50,7 +48,7 @@ def fetch_and_parse_page(
         soup = scraper.get_page(city=city, page=page)
 
         # Parse listings of house for rent
-        listings = scraper.parse_page(soup=soup, city=city, download_delay=download_delay)
+        listings = scraper.parse_page(soup=soup, city=city)
 
         task_logger.info(f"Parsed {len(listings)} listings from page {page}")
 

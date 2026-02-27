@@ -3,7 +3,6 @@
 import json
 import logging
 import random
-from datetime import datetime
 from time import sleep
 
 from bs4 import BeautifulSoup
@@ -11,6 +10,7 @@ from bs4 import BeautifulSoup
 from real_estate_data_platform.models.enums import City
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.scrapers.base_scraper import BaseScraper
+from real_estate_data_platform.utils.dates import parse_iso_datetime
 from real_estate_data_platform.utils.parsers import parse_float, parse_int
 
 logger = logging.getLogger(__name__)
@@ -102,12 +102,12 @@ class KijijiScraper(BaseScraper):
 
         return BeautifulSoup(response.text, "html.parser")
 
-    def parse_listing(self, listing_elem: dict, city: str) -> RentalsListing | None:
+    def parse_listing(self, listing_elem: dict, city: City) -> RentalsListing | None:
         """Parse a single listing element from search results.
 
         Args:
             listing_elem: Dictionary from itemListElement (JSON-LD)
-            city: City name (string value of City enum)
+            city: City being scraped
 
         Returns:
             RentalsListing object or None if parsing fails
@@ -120,14 +120,15 @@ class KijijiScraper(BaseScraper):
             return None
 
     def _parse_page_impl(
-        self, soup: BeautifulSoup, city: City, download_delay: float = 2.0
+        self,
+        soup: BeautifulSoup,
+        city: City,
     ) -> list[RentalsListing]:
         """Internal implementation for parsing all listings from a search results page.
 
         Args:
             soup: BeautifulSoup object of the search page
             city: City being scraped (City enum value)
-            download_delay: Delay in seconds between requests to listing pages
 
         Returns:
             List of parsed RentalsListing objects (filtering handled by parse_page)
@@ -141,10 +142,10 @@ class KijijiScraper(BaseScraper):
                 return listings
 
             for item in data.get("itemListElement", []):
-                listing = self.parse_listing(item, city.value)
+                listing = self.parse_listing(item, city)
                 if listing:
                     listings.append(listing)
-                if download_delay > 0:
+                if self.download_delay > 0:
                     sleep(self.download_delay * random.uniform(0.5, 1.5))
                 # TODO: Remove this break after testing
                 if len(listings) >= 8:
@@ -154,12 +155,12 @@ class KijijiScraper(BaseScraper):
 
         return listings
 
-    def _parse_listing_detail(self, url: str, city: str) -> RentalsListing | None:
+    def _parse_listing_detail(self, url: str, city: City) -> RentalsListing | None:
         """Parse a single listing detail page.
 
         Args:
             url: Full URL of the listing page
-            city: City name (string value of City enum)
+            city: City being scraped
 
         Returns:
             RentalsListing object or None if parsing fails
@@ -203,7 +204,7 @@ class KijijiScraper(BaseScraper):
                 price = price / 100
 
             activation_date = listing_data.get("activationDate") or page_props.get("activationDate")
-            published_at = self._parse_activation_date(activation_date)
+            published_at = parse_iso_datetime(activation_date)
 
             # Build RentalsListing with mapped attributes
             listing = RentalsListing(
@@ -304,11 +305,3 @@ class KijijiScraper(BaseScraper):
             }
 
         return neighbourhood, scores
-
-    def _parse_activation_date(self, value) -> datetime:
-        """Parse activation date in ISO format like '2026-02-12T08:03:15.000Z'."""
-        try:
-            normalized = str(value).replace("Z", "+00:00")
-            return datetime.fromisoformat(normalized)
-        except ValueError:
-            return None

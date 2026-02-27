@@ -31,11 +31,7 @@ class MinIOStorage:
             bucket_name: Base bucket name. Default: raw
             secure: Use HTTPS. Default: False (for local development)
         """
-        self.endpoint = endpoint
-        self.access_key = access_key
-        self.secret_key = secret_key
         self.bucket_name = bucket_name
-        self.secure = secure
 
         self.client = Minio(
             endpoint=endpoint,

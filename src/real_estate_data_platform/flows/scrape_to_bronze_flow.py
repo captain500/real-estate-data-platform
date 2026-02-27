@@ -1,7 +1,6 @@
 """Prefect flow for scraping rental listings."""
 
-import datetime
-from datetime import date
+from datetime import UTC, date, datetime
 
 from prefect import flow, get_run_logger
 
@@ -61,22 +60,14 @@ def scrape_to_bronze(
         f"(max {max_pages} pages, mode: {mode})"
     )
 
-    scrape_date = datetime.datetime.now(datetime.UTC)
-
-    # Get configuration from settings
-    user_agent = settings.scraper.user_agent
-    download_delay = settings.scraper.download_delay
-    minio_endpoint = settings.minio.endpoint
-    minio_access_key = settings.minio.access_key
-    minio_secret_key = settings.minio.secret_key.get_secret_value()
-    bucket_name = settings.minio.bucket_name
+    scrape_date = datetime.now(UTC)
 
     # Get scraper class and instantiate it
     flow_logger.info(f"Initializing {scraper_type.value} scraper")
     scraper_class = scraper_type.get_scraper_class()
     scraper = scraper_class(
-        user_agent=user_agent,
-        download_delay=download_delay,
+        user_agent=settings.scraper.user_agent,
+        download_delay=settings.scraper.download_delay,
         scraper_mode=mode,
         days=days,
         specific_date=specific_date,
@@ -97,9 +88,7 @@ def scrape_to_bronze(
 
     page_results = []
     for page in range(1, max_pages + 1):
-        result = fetch_and_parse_page(
-            scraper=scraper, city=city, page=page, download_delay=download_delay
-        )
+        result = fetch_and_parse_page(scraper=scraper, city=city, page=page)
         page_results.append(result)
 
     # Aggregate results from all pages
@@ -122,16 +111,16 @@ def scrape_to_bronze(
         listings=all_listings,
         source=scraper_type.value,
         city=city.value,
-        minio_endpoint=minio_endpoint,
-        minio_access_key=minio_access_key,
-        minio_secret_key=minio_secret_key,
+        minio_endpoint=settings.minio.endpoint,
+        minio_access_key=settings.minio.access_key,
+        minio_secret_key=settings.minio.secret_key.get_secret_value(),
         partition_date=format_date(scrape_date),
         max_pages=max_pages,
         mode=mode,
         days=days,
         specific_date=specific_date,
         environment=settings.environment.value,
-        bucket_name=bucket_name,
+        bucket_name=settings.minio.bucket_name,
     )
 
     scraper.close()

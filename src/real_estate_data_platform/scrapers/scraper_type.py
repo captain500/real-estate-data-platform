@@ -1,9 +1,9 @@
 """Enum for scraper types."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ScraperType(Enum):
+class ScraperType(StrEnum):
     """Available scraper types."""
 
     KIJIJI = "kijiji"

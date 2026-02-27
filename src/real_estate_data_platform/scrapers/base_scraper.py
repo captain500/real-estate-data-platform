@@ -81,11 +81,12 @@ class BaseScraper(ABC):
         pass
 
     @abstractmethod
-    def parse_listing(self, listing_elem) -> RentalsListing | None:
+    def parse_listing(self, listing_elem, city: City) -> RentalsListing | None:
         """Parse a single listing element.
 
         Args:
             listing_elem: BeautifulSoup element containing listing HTML
+            city: City being scraped
 
         Returns:
             RentalsListing object or None if parsing fails
@@ -94,7 +95,9 @@ class BaseScraper(ABC):
 
     @abstractmethod
     def _parse_page_impl(
-        self, soup: BeautifulSoup, city: City, download_delay: float = 2.0
+        self,
+        soup: BeautifulSoup,
+        city: City,
     ) -> list[RentalsListing]:
         """Internal implementation for parsing listings from a page.
 
@@ -104,7 +107,6 @@ class BaseScraper(ABC):
         Args:
             soup: BeautifulSoup object of the page
             city: City being scraped (City enum - for labeling)
-            download_delay: Delay between requests in seconds
 
         Returns:
             List of parsed RentalsListing objects (before date filtering)
@@ -112,7 +114,9 @@ class BaseScraper(ABC):
         pass
 
     def parse_page(
-        self, soup: BeautifulSoup, city: City, download_delay: float = 2.0
+        self,
+        soup: BeautifulSoup,
+        city: City,
     ) -> list[RentalsListing]:
         """Template method that parses listings and applies date filtering.
 
@@ -122,12 +126,11 @@ class BaseScraper(ABC):
         Args:
             soup: BeautifulSoup object of the page
             city: City being scraped (City enum - for labeling)
-            download_delay: Delay between requests in seconds
 
         Returns:
             List of parsed RentalsListing objects (already date-filtered)
         """
-        raw_listings = self._parse_page_impl(soup, city, download_delay)
+        raw_listings = self._parse_page_impl(soup, city)
         filtered_listings = self._apply_date_filter(raw_listings, city.value)
         return filtered_listings
 
@@ -140,9 +143,6 @@ class BaseScraper(ABC):
         Returns:
             True if listing should be included, False otherwise
         """
-        if not listing.published_at:
-            return False
-
         if self.scraper_mode == ScraperMode.LAST_X_DAYS:
             cutoff_date = datetime.now(UTC) - timedelta(days=self.days)
             return listing.published_at >= cutoff_date
