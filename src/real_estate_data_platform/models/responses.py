@@ -39,6 +39,7 @@ class ScrapingResult(_BaseResult):
 
     page_number: int
     listings: list[RentalsListing] = Field(default_factory=list)
+    failed_listings: int = 0
     error: str | None = None
 
 
@@ -46,7 +47,7 @@ class ScrapeToBronzeResult(_BaseResult):
     """Result of scrape-to-bronze flow execution."""
 
     status: FlowStatus
-    successful_pages: int = 0
-    failed_pages: int = 0
+    total_listings: int = 0
+    failed_listings: int = 0
     storage: StorageResult | None = None
     error: str | None = None

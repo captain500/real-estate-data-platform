@@ -50,55 +50,50 @@ def save_listings_to_minio(
     """
     logger = get_run_logger()
 
-    try:
-        # Initialize storage backend
-        storage = MinIOStorage(
-            endpoint=minio_endpoint,
-            access_key=minio_access_key,
-            secret_key=minio_secret_key,
-            bucket_name=bucket_name,
-            secure=(environment == Environment.PROD.value),
-        )
+    # Initialize storage backend
+    storage = MinIOStorage(
+        endpoint=minio_endpoint,
+        access_key=minio_access_key,
+        secret_key=minio_secret_key,
+        bucket_name=bucket_name,
+        secure=(environment == Environment.PROD.value),
+    )
 
-        # Prepare file paths
-        datestamp = partition_date.replace("-", "")
-        base_dir = f"listings/source={source}/city={city}/dt={partition_date}"
-        parquet_path = f"{base_dir}/listings_{datestamp}.parquet"
-        metadata_path = f"{base_dir}/_metadata.json"
+    # Prepare file paths
+    datestamp = partition_date.replace("-", "")
+    base_dir = f"listings/source={source}/city={city}/dt={partition_date}"
+    parquet_path = f"{base_dir}/listings_{datestamp}.parquet"
+    metadata_path = f"{base_dir}/_metadata.json"
 
-        # Convert RentalsListing objects to Polars DataFrame
-        data = [listing.model_dump() for listing in listings]
-        df = pl.DataFrame(data)
+    # Convert RentalsListing objects to Polars DataFrame
+    data = [listing.model_dump() for listing in listings]
+    df = pl.DataFrame(data)
 
-        # Save Parquet file
-        storage.save_parquet(
-            dataframe=df,
-            object_name=parquet_path,
-        )
+    # Save Parquet file
+    storage.save_parquet(
+        dataframe=df,
+        object_name=parquet_path,
+    )
 
-        # Build and save metadata
-        metadata = ScrapeMetadata(
-            mode=mode,
-            days=days,
-            specific_date=specific_date,
-            max_pages=max_pages,
-            record_count=len(listings),
-            saved_at=datetime.now(UTC),
-        )
+    # Build and save metadata
+    metadata = ScrapeMetadata(
+        mode=mode,
+        days=days,
+        specific_date=specific_date,
+        max_pages=max_pages,
+        record_count=len(listings),
+        saved_at=datetime.now(UTC),
+    )
 
-        # Save metadata JSON
-        storage.save_json(
-            data=metadata.model_dump(mode="json"),
-            object_name=metadata_path,
-        )
+    # Save metadata JSON
+    storage.save_json(
+        data=metadata.model_dump(mode="json"),
+        object_name=metadata_path,
+    )
 
-        logger.info(f"Successfully saved {len(listings)} listings to {parquet_path}")
-        return StorageResult(
-            status=OperationStatus.SUCCESS,
-            path=f"{bucket_name}/{parquet_path}",
-            count=len(listings),
-        )
-
-    except Exception as e:
-        logger.error(f"Error saving listings to MinIO: {e}", exc_info=True)
-        raise
+    logger.info(f"Successfully saved {len(listings)} listings to {parquet_path}")
+    return StorageResult(
+        status=OperationStatus.SUCCESS,
+        path=f"{bucket_name}/{parquet_path}",
+        count=len(listings),
+    )

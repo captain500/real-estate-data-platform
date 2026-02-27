@@ -119,7 +119,7 @@ class KijijiScraper(BaseScraper):
         self,
         soup: BeautifulSoup,
         city: City,
-    ) -> list[RentalsListing]:
+    ) -> tuple[list[RentalsListing], int]:
         """Internal implementation for parsing all listings from a search results page.
 
         Args:
@@ -127,20 +127,23 @@ class KijijiScraper(BaseScraper):
             city: City being scraped (City enum value)
 
         Returns:
-            List of parsed RentalsListing objects (filtering handled by parse_page)
+            Tuple of (parsed listings, number of failed listings)
         """
         listings = []
+        failed_count = 0
 
         try:
             data = self._extract_json_ld(soup)
             if not data:
                 logger.warning("No JSON-LD data found for %s search page", city.value)
-                return listings
+                return listings, failed_count
 
             for item in data.get("itemListElement", []):
                 listing = self.parse_listing(item, city)
                 if listing:
                     listings.append(listing)
+                else:
+                    failed_count += 1
                 if self.download_delay > 0:
                     sleep(self.download_delay * random.uniform(0.5, 1.5))
                 # TODO: Remove this break after testing
@@ -149,7 +152,7 @@ class KijijiScraper(BaseScraper):
         except Exception:
             logger.exception("Error parsing search page for %s", city.value)
 
-        return listings
+        return listings, failed_count
 
     def _parse_listing_detail(self, url: str, city: City) -> RentalsListing | None:
         """Parse a single listing detail page.

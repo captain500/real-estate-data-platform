@@ -39,55 +39,36 @@ def fetch_and_parse_page(
     """
     logger = get_run_logger()
 
-    try:
-        logger.info(f"Fetching page {page} for {city.value} using {scraper.__class__.__name__}")
+    logger.info(f"Fetching page {page} for {city.value} using {scraper.__class__.__name__}")
 
-        # Fetch page
-        soup = scraper.get_page(city=city, page=page)
+    soup = scraper.get_page(city=city, page=page)
 
-        # Parse listings of house for rent
-        listings = scraper.parse_page(soup=soup, city=city)
+    listings, failed_listings = scraper.parse_page(soup=soup, city=city)
 
-        logger.info(f"Parsed {len(listings)} listings from page {page}")
+    logger.info(f"Parsed {len(listings)} listings from page {page} ({failed_listings} failed)")
 
-        result = ScrapingResult(
-            page_number=page,
-            listings=listings,
-        )
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Error scraping page {page}: {e}", exc_info=True)
-        return ScrapingResult(
-            page_number=page,
-            listings=[],
-            error=str(e),
-        )
+    return ScrapingResult(
+        page_number=page,
+        listings=listings,
+        failed_listings=failed_listings,
+    )
 
 
 @task
 def aggregate_results(results: list[ScrapingResult]) -> tuple[list[RentalsListing], int]:
-    """Aggregate results from multiple pages into a single list.
+    """Flatten listings from multiple page results into a single list.
 
     Args:
-        results: List of ScrapingResult objects from different pages
+        results: List of successful ScrapingResult objects
 
     Returns:
-        Tuple of (all_listings, failed_pages)
+        Tuple of (all listings, total failed listings)
     """
     logger = get_run_logger()
 
-    all_listings = []
-    failed_pages = 0
+    all_listings = [listing for result in results for listing in result.listings]
+    total_failed = sum(result.failed_listings for result in results)
 
-    for result in results:
-        if result.error:
-            logger.warning(f"Page {result.page_number} had error: {result.error}")
-            failed_pages += 1
-        else:
-            all_listings.extend(result.listings)
+    logger.info(f"Aggregated {len(all_listings)} listings ({total_failed} failed)")
 
-    logger.info(f"Aggregated {len(all_listings)} listings")
-
-    return all_listings, failed_pages
+    return all_listings, total_failed

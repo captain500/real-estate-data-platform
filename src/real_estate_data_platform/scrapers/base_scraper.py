@@ -99,7 +99,7 @@ class BaseScraper(ABC):
         self,
         soup: BeautifulSoup,
         city: City,
-    ) -> list[RentalsListing]:
+    ) -> tuple[list[RentalsListing], int]:
         """Internal implementation for parsing listings from a page.
 
         Subclasses should implement this method with their specific parsing logic.
@@ -110,7 +110,7 @@ class BaseScraper(ABC):
             city: City being scraped (City enum - for labeling)
 
         Returns:
-            List of parsed RentalsListing objects (before date filtering)
+            Tuple of (parsed listings, number of failed listings)
         """
         pass
 
@@ -118,7 +118,7 @@ class BaseScraper(ABC):
         self,
         soup: BeautifulSoup,
         city: City,
-    ) -> list[RentalsListing]:
+    ) -> tuple[list[RentalsListing], int]:
         """Template method that parses listings and applies date filtering.
 
         This method orchestrates the parsing process and automatically applies
@@ -129,11 +129,11 @@ class BaseScraper(ABC):
             city: City being scraped (City enum - for labeling)
 
         Returns:
-            List of parsed RentalsListing objects (already date-filtered)
+            Tuple of (date-filtered listings, number of failed listings)
         """
-        raw_listings = self._parse_page_impl(soup, city)
+        raw_listings, failed_count = self._parse_page_impl(soup, city)
         filtered_listings = self._apply_date_filter(raw_listings, city.value)
-        return filtered_listings
+        return filtered_listings, failed_count
 
     def _passes_date_filter(self, listing: RentalsListing) -> bool:
         """Check if a listing passes the date filter based on scraper mode.
@@ -144,6 +144,9 @@ class BaseScraper(ABC):
         Returns:
             True if listing should be included, False otherwise
         """
+        if listing.published_at is None:
+            return False
+
         if self.scraper_mode == ScraperMode.LAST_X_DAYS:
             cutoff_date = datetime.now(UTC) - timedelta(days=self.days)
             return listing.published_at >= cutoff_date

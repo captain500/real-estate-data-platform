@@ -88,48 +88,60 @@ def scrape_to_bronze(
 
         page_results = []
         for page in range(1, max_pages + 1):
-            result = fetch_and_parse_page(scraper=scraper, city=city, page=page)
-            page_results.append(result)
+            try:
+                result = fetch_and_parse_page(scraper=scraper, city=city, page=page)
+                page_results.append(result)
+            except Exception:
+                logger.error(f"Page {page} failed after all retries", exc_info=True)
 
     # Aggregate results from all pages
     logger.info("Aggregating results from all pages")
-    all_listings, failed_pages = aggregate_results(page_results)
+    all_listings, failed_listings = aggregate_results(page_results)
     total_listings = len(all_listings)
-    logger.info(f"Total listings aggregated: {total_listings} from {total_listings} pages")
+    logger.info(f"Total: {total_listings} listings scraped, {failed_listings} failed")
 
     if total_listings == 0:
         logger.warning("No listings found to save")
         return ScrapeToBronzeResult(
             status=FlowStatus.COMPLETED_NO_DATA,
-            successful_pages=total_listings,
-            failed_pages=failed_pages,
+            total_listings=0,
+            failed_listings=failed_listings,
         )
 
     # Save to MinIO (raw bucket)
     logger.info("Saving listings to MinIO")
 
-    storage_result = save_listings_to_minio(
-        listings=all_listings,
-        source=scraper_type.value,
-        city=city.value,
-        minio_endpoint=settings.minio.endpoint,
-        minio_access_key=settings.minio.access_key,
-        minio_secret_key=settings.minio.secret_key.get_secret_value(),
-        bucket_name=settings.minio.bucket_name,
-        partition_date=format_date(scrape_date),
-        max_pages=max_pages,
-        mode=mode,
-        days=days,
-        specific_date=specific_date,
-        environment=settings.environment.value,
-    )
+    try:
+        storage_result = save_listings_to_minio(
+            listings=all_listings,
+            source=scraper_type.value,
+            city=city.value,
+            minio_endpoint=settings.minio.endpoint,
+            minio_access_key=settings.minio.access_key,
+            minio_secret_key=settings.minio.secret_key.get_secret_value(),
+            bucket_name=settings.minio.bucket_name,
+            partition_date=format_date(scrape_date),
+            max_pages=max_pages,
+            mode=mode,
+            days=days,
+            specific_date=specific_date,
+            environment=settings.environment.value,
+        )
+    except Exception:
+        logger.error("Failed to save listings to MinIO", exc_info=True)
+        return ScrapeToBronzeResult(
+            status=FlowStatus.ERROR,
+            total_listings=total_listings,
+            failed_listings=failed_listings,
+            error="Failed to save listings to MinIO",
+        )
 
     logger.info("Scraping flow completed successfully")
 
     return ScrapeToBronzeResult(
         status=FlowStatus.SUCCESS,
-        successful_pages=total_listings,
-        failed_pages=failed_pages,
+        total_listings=total_listings,
+        failed_listings=failed_listings,
         storage=storage_result,
     )
 
