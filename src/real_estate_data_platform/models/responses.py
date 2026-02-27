@@ -1,8 +1,10 @@
 """Response/result models for operations."""
 
+from datetime import date, datetime
+
 from pydantic import BaseModel, Field
 
-from real_estate_data_platform.models.enums import FlowStatus, OperationStatus
+from real_estate_data_platform.models.enums import FlowStatus, OperationStatus, ScraperMode
 from real_estate_data_platform.models.listings import RentalsListing
 
 
@@ -10,6 +12,17 @@ class _BaseResult(BaseModel):
     """Base model for operation results."""
 
     model_config = {"use_enum_values": True}
+
+
+class ScrapeMetadata(_BaseResult):
+    """Metadata about a scrape-to-bronze run, stored as JSON alongside the Parquet file."""
+
+    mode: ScraperMode
+    days: int
+    specific_date: date | None = None
+    max_pages: int
+    record_count: int
+    saved_at: datetime
 
 
 class StorageResult(_BaseResult):

@@ -9,7 +9,7 @@ from real_estate_data_platform.config.settings import Environment
 from real_estate_data_platform.connectors.minio import MinIOStorage
 from real_estate_data_platform.models.enums import OperationStatus, ScraperMode
 from real_estate_data_platform.models.listings import RentalsListing
-from real_estate_data_platform.models.responses import StorageResult
+from real_estate_data_platform.models.responses import ScrapeMetadata, StorageResult
 
 
 @task
@@ -76,19 +76,19 @@ def save_listings_to_minio(
             object_name=parquet_path,
         )
 
-        # Build metadata
-        metadata_dict = {
-            "mode": mode.value,
-            "days": days,
-            "specific_date": specific_date if specific_date else None,
-            "max_pages": max_pages,
-            "record_count": len(listings),
-            "saved_at": datetime.now(UTC),
-        }
+        # Build and save metadata
+        metadata = ScrapeMetadata(
+            mode=mode,
+            days=days,
+            specific_date=specific_date,
+            max_pages=max_pages,
+            record_count=len(listings),
+            saved_at=datetime.now(UTC),
+        )
 
         # Save metadata JSON
         storage.save_json(
-            data=metadata_dict,
+            data=metadata.model_dump(mode="json"),
             object_name=metadata_path,
         )
 
