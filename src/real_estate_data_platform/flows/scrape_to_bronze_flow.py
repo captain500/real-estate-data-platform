@@ -65,31 +65,31 @@ def scrape_to_bronze(
     # Get scraper class and instantiate it
     flow_logger.info(f"Initializing {scraper_type.value} scraper")
     scraper_class = scraper_type.get_scraper_class()
-    scraper = scraper_class(
+
+    with scraper_class(
         user_agent=settings.scraper.user_agent,
         download_delay=settings.scraper.download_delay,
         scraper_mode=mode,
         days=days,
         specific_date=specific_date,
-    )
+    ) as scraper:
+        # Validate if city is supported by scraper
+        if city not in scraper.SUPPORTED_CITIES:
+            error_msg = f"City not supported by {scraper_type.value}"
+            flow_logger.error(error_msg)
+            return ScrapeToBronzeResult(
+                status=FlowStatus.ERROR,
+                error=error_msg,
+            )
 
-    # Validate if city is supported by scraper
-    if city not in scraper.SUPPORTED_CITIES:
-        error_msg = f"City not supported by {scraper_type.value}"
-        flow_logger.error(error_msg)
-        return ScrapeToBronzeResult(
-            status=FlowStatus.ERROR,
-            error=error_msg,
-        )
+        # Fetch pages
+        # TODO: Implement parallel page fetching using map_over in Prefect flow
+        flow_logger.info(f"Fetching {max_pages} pages for {city.value}")
 
-    # Fetch pages
-    # TODO: Implement parallel page fetching using map_over in Prefect flow
-    flow_logger.info(f"Fetching {max_pages} pages for {city.value}")
-
-    page_results = []
-    for page in range(1, max_pages + 1):
-        result = fetch_and_parse_page(scraper=scraper, city=city, page=page)
-        page_results.append(result)
+        page_results = []
+        for page in range(1, max_pages + 1):
+            result = fetch_and_parse_page(scraper=scraper, city=city, page=page)
+            page_results.append(result)
 
     # Aggregate results from all pages
     flow_logger.info("Aggregating results from all pages")
@@ -99,9 +99,10 @@ def scrape_to_bronze(
 
     if total_listings == 0:
         flow_logger.warning("No listings found to save")
-        scraper.close()
         return ScrapeToBronzeResult(
             status=FlowStatus.COMPLETED_NO_DATA,
+            successful_pages=total_listings,
+            failed_pages=failed_pages,
         )
 
     # Save to MinIO (raw bucket)
@@ -114,16 +115,15 @@ def scrape_to_bronze(
         minio_endpoint=settings.minio.endpoint,
         minio_access_key=settings.minio.access_key,
         minio_secret_key=settings.minio.secret_key.get_secret_value(),
+        bucket_name=settings.minio.bucket_name,
         partition_date=format_date(scrape_date),
         max_pages=max_pages,
         mode=mode,
         days=days,
         specific_date=specific_date,
         environment=settings.environment.value,
-        bucket_name=settings.minio.bucket_name,
     )
 
-    scraper.close()
     flow_logger.info("Scraping flow completed successfully")
 
     return ScrapeToBronzeResult(

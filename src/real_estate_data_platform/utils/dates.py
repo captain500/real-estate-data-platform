@@ -1,6 +1,6 @@
 """Date and time utilities."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 def parse_iso_datetime(value: str | None) -> datetime | None:
@@ -32,7 +32,7 @@ def format_date(date: datetime | None = None) -> str:
         Formatted date string (YYYY-MM-DD)
     """
     if date is None:
-        date = datetime.now()
+        date = datetime.now(UTC)
     return date.strftime("%Y-%m-%d")
 
 
@@ -48,5 +48,5 @@ def format_timestamp(date: datetime | None = None) -> str:
         Formatted timestamp string (YYYYMMDD_HHMMSS)
     """
     if date is None:
-        date = datetime.now()
+        date = datetime.now(UTC)
     return date.strftime("%Y%m%d_%H%M%S")

@@ -53,75 +53,46 @@ class MinIOStorage:
             logger.error(f"Error checking/creating bucket: {e}")
             raise
 
-    def save_parquet(
-        self,
-        dataframe: pl.DataFrame,
-        object_name: str,
-    ) -> None:
-        """Save a Polars DataFrame as Parquet to MinIO.
+    def _upload(self, buffer: io.BytesIO, object_name: str, content_type: str) -> None:
+        """Upload a bytes buffer to MinIO.
 
         Args:
-            dataframe: Polars DataFrame to save
-            object_name: S3 object path (e.g., 'listings/source=kijiji/city=toronto/dt=2025-02-26/listings_20250226.parquet')
+            buffer: BytesIO buffer with the content to upload
+            object_name: S3 object path
+            content_type: MIME type of the content
         """
         try:
-            # Write DataFrame to Parquet buffer
-            buffer = io.BytesIO()
-            dataframe.write_parquet(buffer)
-            file_size = buffer.getbuffer().nbytes
+            size = buffer.getbuffer().nbytes
             buffer.seek(0)
-
-            # Upload Parquet file to MinIO
             self.client.put_object(
                 bucket_name=self.bucket_name,
                 object_name=object_name,
                 data=buffer,
-                length=file_size,
-                content_type="application/octet-stream",
+                length=size,
+                content_type=content_type,
             )
-
-            full_path = f"{self.bucket_name}/{object_name}"
-            logger.info(f"Successfully saved Parquet file to {full_path}")
-
+            logger.info(f"Saved {self.bucket_name}/{object_name}")
         except S3Error as e:
-            logger.error(f"Error saving Parquet file to MinIO: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error saving Parquet file: {e}")
+            logger.error(f"S3 error uploading {object_name}: {e}")
             raise
 
-    def save_json(
-        self,
-        data: dict,
-        object_name: str,
-    ) -> None:
+    def save_parquet(self, dataframe: pl.DataFrame, object_name: str) -> None:
+        """Save a Polars DataFrame as Parquet to MinIO.
+
+        Args:
+            dataframe: Polars DataFrame to save
+            object_name: S3 object path
+        """
+        buffer = io.BytesIO()
+        dataframe.write_parquet(buffer)
+        self._upload(buffer, object_name, content_type="application/octet-stream")
+
+    def save_json(self, data: dict, object_name: str) -> None:
         """Save a dictionary as JSON to MinIO.
 
         Args:
             data: Dictionary to serialize and save
-            object_name: S3 object path (e.g., 'listings/source=kijiji/city=toronto/dt=2025-02-26/_metadata.json')
+            object_name: S3 object path
         """
-        try:
-            # Serialize dict to JSON bytes
-            json_bytes = json.dumps(data, default=str).encode("utf-8")
-            json_buffer = io.BytesIO(json_bytes)
-            file_size = len(json_bytes)
-
-            # Upload JSON file to MinIO
-            self.client.put_object(
-                bucket_name=self.bucket_name,
-                object_name=object_name,
-                data=json_buffer,
-                length=file_size,
-                content_type="application/json",
-            )
-
-            full_path = f"{self.bucket_name}/{object_name}"
-            logger.info(f"Successfully saved JSON file to {full_path}")
-
-        except S3Error as e:
-            logger.error(f"Error saving JSON file to MinIO: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error saving JSON file: {e}")
-            raise
+        json_bytes = json.dumps(data, default=str).encode("utf-8")
+        self._upload(io.BytesIO(json_bytes), object_name, content_type="application/json")

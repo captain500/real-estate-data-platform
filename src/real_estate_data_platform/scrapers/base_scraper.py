@@ -3,6 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, date, datetime, timedelta
+from typing import Self
 
 import requests
 from bs4 import BeautifulSoup
@@ -181,3 +182,9 @@ class BaseScraper(ABC):
     def close(self):
         """Close any resources (sessions, connections, etc.)."""
         self.session.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()

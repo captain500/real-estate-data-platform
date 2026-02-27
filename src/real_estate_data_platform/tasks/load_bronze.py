@@ -20,18 +20,15 @@ def save_listings_to_minio(
     minio_endpoint: str,
     minio_access_key: str,
     minio_secret_key: str,
+    bucket_name: str,
     partition_date: str,
     max_pages: int,
     mode: ScraperMode,
     days: int,
     specific_date: date | None = None,
     environment: str = Environment.DEV.value,
-    bucket_name: str = "raw",
 ) -> StorageResult:
     """Save listings to MinIO as Parquet with JSON metadata.
-
-    1. Saves Parquet file with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/listings_{YYYYMMDD}.parquet
-    2. Saves metadata JSON with path: {bucket_name}/listings/source={source}/city={city}/dt={date}/_metadata.json
 
     Args:
         listings: List of RentalsListing objects
@@ -40,13 +37,13 @@ def save_listings_to_minio(
         minio_endpoint: MinIO endpoint URL (e.g., 'minio:9000')
         minio_access_key: MinIO access key
         minio_secret_key: MinIO secret key
+        bucket_name: S3 bucket name
         partition_date: Date string for partition (YYYY-MM-DD)
         max_pages: Maximum number of pages scraped
         mode: ScraperMode used (last_x_days or specific_date)
         days: Number of days if mode is last_x_days
         specific_date: Specific date if mode is specific_date
         environment: Application environment ('dev' or 'prod'). Default: 'dev'
-        bucket_name: S3 bucket name. Default: 'raw'
 
     Returns:
         StorageResult with metadata about saved files and operation status

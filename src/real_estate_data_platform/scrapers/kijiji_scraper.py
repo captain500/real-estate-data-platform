@@ -89,10 +89,6 @@ class KijijiScraper(BaseScraper):
             requests.HTTPError: If HTTP request fails
             ValueError: If city not supported
         """
-        if city not in self.SUPPORTED_CITIES:
-            supported = [c.value for c in self.SUPPORTED_CITIES.keys()]
-            raise ValueError(f"City '{city.value}' not supported. Supported: {supported}")
-
         city_path = self.SUPPORTED_CITIES[city]
         url = f"{self.BASE_URL}/{city_path}"
 
