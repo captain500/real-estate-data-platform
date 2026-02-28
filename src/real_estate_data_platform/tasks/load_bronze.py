@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 
 import polars as pl
 from prefect import get_run_logger, task
+from prefect.cache_policies import NONE
 
 from real_estate_data_platform.connectors.minio import MinIOStorage
 from real_estate_data_platform.models.enums import OperationStatus, ScraperMode
@@ -11,7 +12,7 @@ from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import ScrapeMetadata, StorageResult
 
 
-@task
+@task(cache_policy=NONE)
 def save_listings_to_minio(
     listings: list[RentalsListing],
     storage: MinIOStorage,

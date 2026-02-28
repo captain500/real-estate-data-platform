@@ -158,7 +158,7 @@ if __name__ == "__main__":
     result = scrape_to_bronze(
         scraper_type=ScraperType.KIJIJI,
         city=City.TORONTO,
-        max_pages=1,
+        max_pages=2,
         mode=ScraperMode.SPECIFIC_DATE,
         specific_date=date(2026, 2, 27),
     )
