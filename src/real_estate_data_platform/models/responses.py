@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from real_estate_data_platform.models.enums import FlowStatus, OperationStatus, ScraperMode
+from real_estate_data_platform.models.enums import FlowStatus, ScraperMode
 from real_estate_data_platform.models.listings import RentalsListing
 
 
@@ -28,10 +28,8 @@ class ScrapeMetadata(_BaseResult):
 class StorageResult(_BaseResult):
     """Result of a storage operation (e.g., saving to MinIO)."""
 
-    status: OperationStatus
     path: str | None = None
     count: int = 0
-    error: str | None = None
 
 
 class ScrapingResult(_BaseResult):
@@ -49,4 +47,16 @@ class ScrapeToBronzeResult(_BaseResult):
     total_listings: int = 0
     failed_listings: int = 0
     storage: StorageResult | None = None
+    error: str | None = None
+
+
+class BronzeToSilverResult(_BaseResult):
+    """Result of bronze-to-silver flow execution."""
+
+    status: FlowStatus
+    source: str | None = None
+    city: str | None = None
+    partition_date: str | None = None
+    records_read: int = 0
+    records_loaded: int = 0
     error: str | None = None

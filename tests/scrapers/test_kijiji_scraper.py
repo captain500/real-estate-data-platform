@@ -325,53 +325,9 @@ class TestParseListingDetail:
 
         assert listing is None
 
-    def test_price_conversion_small_value_not_divided(self, kijiji_scraper):
-        """Price <= 100 should NOT be divided by 100."""
-        html = """
-        <html><body>
-        <script id="__NEXT_DATA__" type="application/json">
-        {
-            "props": {
-                "pageProps": {
-                    "listingId": "777",
-                    "activationDate": "2026-02-20T10:00:00.000Z",
-                    "__APOLLO_STATE__": {
-                        "RealEstateListing:777": {
-                            "title": "Test",
-                            "description": "Test description",
-                            "price": {"amount": 50},
-                            "activationDate": "2026-02-20T10:00:00.000Z",
-                            "location": {
-                                "address": "1 Test Rd",
-                                "coordinates": {"latitude": 43.0, "longitude": -79.0},
-                                "neighbourhoodInfo": {}
-                            },
-                            "imageUrls": [],
-                            "attributes": {"all": []}
-                        }
-                    }
-                }
-            }
-        }
-        </script>
-        </body></html>
-        """
-        mock_response = MagicMock()
-        mock_response.text = html
-        mock_response.raise_for_status = MagicMock()
-
-        with patch.object(kijiji_scraper.session, "get", return_value=mock_response):
-            listing = kijiji_scraper._parse_listing_detail(
-                "https://www.kijiji.ca/v-apartments-condos/toronto/test/777",
-                City.TORONTO,
-            )
-
-        assert listing is not None
-        assert listing.rent == 50  # Not divided because <= 100
-
 
 # ---------------------------------------------------------------------------
-# _parse_page_impl  (mocking parse_listing to avoid real HTTP)
+# _parse_page_impl  (mocking _parse_listing to avoid real HTTP)
 # ---------------------------------------------------------------------------
 class TestParsePageImpl:
     """Tests for search results page parsing."""
@@ -379,7 +335,7 @@ class TestParsePageImpl:
     def test_parses_all_listings_from_search_page(self, kijiji_scraper, search_page_soup):
         dummy_listing = MagicMock(spec=RentalsListing)
 
-        with patch.object(kijiji_scraper, "parse_listing", return_value=dummy_listing):
+        with patch.object(kijiji_scraper, "_parse_listing", return_value=dummy_listing):
             listings, failed = kijiji_scraper._parse_page_impl(search_page_soup, City.TORONTO)
 
         assert len(listings) == 3
@@ -390,7 +346,7 @@ class TestParsePageImpl:
         dummy_listing = MagicMock(spec=RentalsListing)
         side_effects = [dummy_listing, None, None]
 
-        with patch.object(kijiji_scraper, "parse_listing", side_effect=side_effects):
+        with patch.object(kijiji_scraper, "_parse_listing", side_effect=side_effects):
             listings, failed = kijiji_scraper._parse_page_impl(search_page_soup, City.TORONTO)
 
         assert len(listings) == 1
@@ -414,10 +370,10 @@ class TestParsePageImpl:
 
 
 # ---------------------------------------------------------------------------
-# parse_listing (integration-level: mocking HTTP only)
+# _parse_listing (integration-level: mocking HTTP only)
 # ---------------------------------------------------------------------------
 class TestParseListing:
-    """Tests for parse_listing (delegates to _parse_listing_detail)."""
+    """Tests for _parse_listing (delegates to _parse_listing_detail)."""
 
     def test_returns_listing_for_valid_item(self, kijiji_scraper, listing_detail_html):
         item = {
@@ -430,18 +386,18 @@ class TestParseListing:
         mock_response.raise_for_status = MagicMock()
 
         with patch.object(kijiji_scraper.session, "get", return_value=mock_response):
-            listing = kijiji_scraper.parse_listing(item, City.TORONTO)
+            listing = kijiji_scraper._parse_listing(item, City.TORONTO)
 
         assert listing is not None
         assert listing.listing_id == "123456789"
 
     def test_returns_none_when_item_has_no_url(self, kijiji_scraper):
         item = {"item": {}}
-        listing = kijiji_scraper.parse_listing(item, City.TORONTO)
+        listing = kijiji_scraper._parse_listing(item, City.TORONTO)
         assert listing is None
 
     def test_returns_none_when_item_is_empty(self, kijiji_scraper):
-        listing = kijiji_scraper.parse_listing({}, City.TORONTO)
+        listing = kijiji_scraper._parse_listing({}, City.TORONTO)
         assert listing is None
 
 

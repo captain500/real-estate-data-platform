@@ -96,3 +96,44 @@ class MinIOStorage:
         """
         json_bytes = json.dumps(data, default=str).encode("utf-8")
         self._upload(io.BytesIO(json_bytes), object_name, content_type="application/json")
+
+    def list_objects(self, prefix: str, suffix: str | None = None) -> list[str]:
+        """List object names under a prefix.
+
+        Args:
+            prefix: S3 prefix to filter by (e.g., 'listings/source=kijiji/')
+            suffix: Optional file extension filter (e.g., '.parquet')
+
+        Returns:
+            List of matching object names
+        """
+        try:
+            objects = self.client.list_objects(self.bucket_name, prefix=prefix, recursive=True)
+            names = [obj.object_name for obj in objects if obj.object_name]
+            if suffix:
+                names = [n for n in names if n.endswith(suffix)]
+            return names
+        except S3Error:
+            logger.exception("Error listing objects with prefix '%s'", prefix)
+            raise
+
+    def read_parquet(self, object_name: str) -> pl.DataFrame:
+        """Read a Parquet file from MinIO into a Polars DataFrame.
+
+        Args:
+            object_name: S3 object path to the Parquet file
+
+        Returns:
+            Polars DataFrame with the file contents
+        """
+        try:
+            response = self.client.get_object(self.bucket_name, object_name)
+            try:
+                data = response.read()
+                return pl.read_parquet(io.BytesIO(data))
+            finally:
+                response.close()
+                response.release_conn()
+        except S3Error:
+            logger.exception("Error reading parquet '%s'", object_name)
+            raise

@@ -81,15 +81,14 @@ class KijijiScraper(BaseScraper):
         """Fetch and parse a search results page from Kijiji.
 
         Args:
-            city: City to search (City enum value)
-            page: Page number (1-based)
+            city: City to search
+            page: Page number
 
         Returns:
             BeautifulSoup object of the page
 
         Raises:
             requests.HTTPError: If HTTP request fails
-            ValueError: If city not supported
         """
         city_path = self.supported_cities[city]
         url = f"{self.base_url}/{city_path}"
@@ -100,7 +99,7 @@ class KijijiScraper(BaseScraper):
 
         return BeautifulSoup(response.text, "html.parser")
 
-    def parse_listing(self, listing_elem: dict, city: City) -> RentalsListing | None:
+    def _parse_listing(self, listing_elem: dict, city: City) -> RentalsListing | None:
         """Parse a single listing element from search results.
 
         Args:
@@ -141,7 +140,7 @@ class KijijiScraper(BaseScraper):
                 return listings, failed_count
 
             for item in data.get("itemListElement", []):
-                listing = self.parse_listing(item, city)
+                listing = self._parse_listing(item, city)
                 if listing:
                     listings.append(listing)
                 else:

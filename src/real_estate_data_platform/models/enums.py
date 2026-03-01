@@ -19,14 +19,6 @@ class FlowStatus(StrEnum):
     COMPLETED_NO_DATA = "completed_no_data"
 
 
-class OperationStatus(StrEnum):
-    """Status of a storage or processing operation."""
-
-    SUCCESS = "success"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
 class ScraperMode(StrEnum):
     """Mode for scraping data based on date range."""
 

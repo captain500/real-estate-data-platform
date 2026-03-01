@@ -7,14 +7,31 @@ from prefect import get_run_logger, task
 from prefect.cache_policies import NONE
 
 from real_estate_data_platform.connectors.minio import MinIOStorage
-from real_estate_data_platform.models.enums import OperationStatus, ScraperMode
+from real_estate_data_platform.models.enums import ScraperMode
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import ScrapeMetadata, StorageResult
 
 
 @task(cache_policy=NONE)
+def listings_to_dataframe(listings: list[RentalsListing]) -> pl.DataFrame:
+    """Convert a list of RentalsListing objects to a Polars DataFrame.
+
+    Args:
+        listings: List of RentalsListing Pydantic models
+
+    Returns:
+        Polars DataFrame with one row per listing
+    """
+    logger = get_run_logger()
+    data = [listing.model_dump() for listing in listings]
+    df = pl.DataFrame(data)
+    logger.info("Converted %d listings to DataFrame", df.height)
+    return df
+
+
+@task(cache_policy=NONE)
 def save_listings_to_minio(
-    listings: list[RentalsListing],
+    df: pl.DataFrame,
     storage: MinIOStorage,
     source: str,
     city: str,
@@ -24,11 +41,11 @@ def save_listings_to_minio(
     days: int,
     specific_date: date | None = None,
 ) -> StorageResult:
-    """Save listings to MinIO as Parquet with JSON metadata.
+    """Save a listings DataFrame to MinIO as Parquet with JSON metadata.
 
     Args:
-        listings: List of RentalsListing objects
-        storage: Pre-configured MinIOStorage instance
+        df: Polars DataFrame with listing data
+        storage: MinIOStorage instance
         source: Data source name (e.g., 'kijiji')
         city: City name for partitioning
         partition_date: Date string for partition (YYYY-MM-DD)
@@ -38,7 +55,7 @@ def save_listings_to_minio(
         specific_date: Specific date if mode is specific_date
 
     Returns:
-        StorageResult with metadata about saved files and operation status
+        StorageResult with metadata about saved files
     """
     logger = get_run_logger()
 
@@ -47,10 +64,6 @@ def save_listings_to_minio(
     base_dir = f"listings/source={source}/city={city}/dt={partition_date}"
     parquet_path = f"{base_dir}/listings_{datestamp}.parquet"
     metadata_path = f"{base_dir}/_metadata.json"
-
-    # Convert RentalsListing objects to Polars DataFrame
-    data = [listing.model_dump() for listing in listings]
-    df = pl.DataFrame(data)
 
     # Save Parquet file
     storage.save_parquet(
@@ -64,7 +77,7 @@ def save_listings_to_minio(
         days=days,
         specific_date=specific_date,
         max_pages=max_pages,
-        record_count=len(listings),
+        record_count=df.height,
         saved_at=datetime.now(UTC),
     )
 
@@ -74,9 +87,8 @@ def save_listings_to_minio(
         object_name=metadata_path,
     )
 
-    logger.info("Successfully saved %d listings to %s", len(listings), parquet_path)
+    logger.info("Successfully saved %d listings to %s", df.height, parquet_path)
     return StorageResult(
-        status=OperationStatus.SUCCESS,
         path=f"{storage.bucket_name}/{parquet_path}",
-        count=len(listings),
+        count=df.height,
     )

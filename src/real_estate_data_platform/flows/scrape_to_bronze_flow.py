@@ -9,7 +9,10 @@ from real_estate_data_platform.connectors.minio import MinIOStorage
 from real_estate_data_platform.models.enums import City, FlowStatus, ScraperMode
 from real_estate_data_platform.models.responses import ScrapeToBronzeResult
 from real_estate_data_platform.scrapers.scraper_type import ScraperType
-from real_estate_data_platform.tasks.load_bronze import save_listings_to_minio
+from real_estate_data_platform.tasks.load_bronze import (
+    listings_to_dataframe,
+    save_listings_to_minio,
+)
 from real_estate_data_platform.tasks.scraping import (
     aggregate_results,
     fetch_and_parse_page,
@@ -26,24 +29,24 @@ def scrape_to_bronze(
     specific_date: date | None = None,
     max_pages: int = 10,
 ) -> ScrapeToBronzeResult:
-    """Scrape listings from a rental website and save to MinIO raw bucket.
+    """Flow to scrape listings from a rental website and save them to MinIO raw bucket.
 
     This flow:
     1. Instantiates the specified scraper type
-    2. Fetches multiple pages in parallel
+    2. Fetches multiple pages
     3. Aggregates results
     4. Saves to MinIO in partitioned Parquet format
 
     Args:
         scraper_type: ScraperType enum specifying which scraper to use
-        city: City to scrape (City enum)
+        city: City to scrape
         mode: ScraperMode to use (last_x_days or specific_date)
         days: Number of days for last_x_days mode
-        specific_date: Specific date for specific_date mode
+        specific_date: Date for specific_date mode
         max_pages: Maximum number of pages to scrape
 
     Returns:
-        ScrapeToBronzeResult with scraping metadata and results
+        ScrapeToBronzeResult with scraping metadata
     """
     logger = get_run_logger()
 
@@ -66,7 +69,7 @@ def scrape_to_bronze(
 
     scrape_date = datetime.now(UTC)
 
-    # Get scraper class and instantiate it
+    # Get scraper class
     logger.info("Initializing %s scraper", scraper_type.value)
     scraper_class = scraper_type.get_scraper_class()
 
@@ -86,10 +89,7 @@ def scrape_to_bronze(
                 error=error_msg,
             )
 
-        # Fetch pages
         # TODO: Implement parallel page fetching using map_over in Prefect flow
-        logger.info("Fetching %d pages for %s", max_pages, city.value)
-
         page_results = []
         for page in range(1, max_pages + 1):
             try:
@@ -112,10 +112,11 @@ def scrape_to_bronze(
             failed_listings=failed_listings,
         )
 
-    # Save to MinIO (raw bucket)
+    # Convert to DataFrame and save to MinIO (raw bucket)
     logger.info("Saving listings to MinIO")
 
     try:
+        df = listings_to_dataframe(all_listings)
         storage = MinIOStorage(
             endpoint=settings.minio.endpoint,
             access_key=settings.minio.access_key,
@@ -124,7 +125,7 @@ def scrape_to_bronze(
             secure=(settings.environment == Environment.PROD),
         )
         storage_result = save_listings_to_minio(
-            listings=all_listings,
+            df=df,
             storage=storage,
             source=scraper_type.value,
             city=city.value,
@@ -162,5 +163,4 @@ if __name__ == "__main__":
         mode=ScraperMode.SPECIFIC_DATE,
         specific_date=date(2026, 2, 27),
     )
-    # result = scrape_to_bronze(scraper_type=ScraperType.KIJIJI, city=City.TORONTO, max_pages=1, mode=ScraperMode.LAST_X_DAYS, days=1)
     print(f"Scraping result: {result}")

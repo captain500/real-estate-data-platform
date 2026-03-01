@@ -82,7 +82,7 @@ class BaseScraper(ABC):
         pass
 
     @abstractmethod
-    def parse_listing(self, listing_elem, city: City) -> RentalsListing | None:
+    def _parse_listing(self, listing_elem, city: City) -> RentalsListing | None:
         """Parse a single listing element.
 
         Args:
