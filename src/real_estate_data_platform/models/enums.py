@@ -19,8 +19,14 @@ class FlowStatus(StrEnum):
     COMPLETED_NO_DATA = "completed_no_data"
 
 
-class ScraperMode(StrEnum):
-    """Mode for scraping data based on date range."""
+class DateMode(StrEnum):
+    """Mode for date-based data selection (scraping, partition processing, etc.)."""
 
     LAST_X_DAYS = "last_x_days"
     SPECIFIC_DATE = "specific_date"
+
+
+class DataSource(StrEnum):
+    """Available data sources."""
+
+    KIJIJI = "kijiji"

@@ -6,7 +6,7 @@ from prefect import flow, get_run_logger
 
 from real_estate_data_platform.config.settings import Environment, settings
 from real_estate_data_platform.connectors.minio import MinIOStorage
-from real_estate_data_platform.models.enums import City, FlowStatus, ScraperMode
+from real_estate_data_platform.models.enums import City, DateMode, FlowStatus
 from real_estate_data_platform.models.responses import ScrapeToBronzeResult
 from real_estate_data_platform.scrapers.scraper_type import ScraperType
 from real_estate_data_platform.tasks.load_bronze import (
@@ -24,7 +24,7 @@ from real_estate_data_platform.utils.dates import format_date
 def scrape_to_bronze(
     scraper_type: ScraperType,
     city: City = City.TORONTO,
-    mode: ScraperMode = ScraperMode.LAST_X_DAYS,
+    mode: DateMode = DateMode.LAST_X_DAYS,
     days: int = 7,
     specific_date: date | None = None,
     max_pages: int = 10,
@@ -40,7 +40,7 @@ def scrape_to_bronze(
     Args:
         scraper_type: ScraperType enum specifying which scraper to use
         city: City to scrape
-        mode: ScraperMode to use (last_x_days or specific_date)
+        mode: DateMode to use (last_x_days or specific_date)
         days: Number of days for last_x_days mode
         specific_date: Date for specific_date mode
         max_pages: Maximum number of pages to scrape
@@ -51,7 +51,7 @@ def scrape_to_bronze(
     logger = get_run_logger()
 
     # Validate parameters
-    if mode == ScraperMode.SPECIFIC_DATE and not specific_date:
+    if mode == DateMode.SPECIFIC_DATE and not specific_date:
         error_msg = "specific_date is required when mode is SPECIFIC_DATE"
         logger.error(error_msg)
         return ScrapeToBronzeResult(
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         scraper_type=ScraperType.KIJIJI,
         city=City.TORONTO,
         max_pages=2,
-        mode=ScraperMode.SPECIFIC_DATE,
+        mode=DateMode.SPECIFIC_DATE,
         specific_date=date(2026, 2, 27),
     )
     print(f"Scraping result: {result}")
