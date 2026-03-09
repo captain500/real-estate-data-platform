@@ -32,6 +32,8 @@ class PostgresSettings(BaseSettings):
     user: str = Field(default="etl_user")
     password: SecretStr = Field(default=SecretStr("etl_pass"))
     db: str = Field(default="etl_db")
+    silver_schema: str = Field(default="silver")
+    silver_table: str = Field(default="rentals_listings")
 
     @computed_field
     @property
@@ -42,6 +44,12 @@ class PostgresSettings(BaseSettings):
             f"{self.password.get_secret_value()}@"
             f"{self.host}:{self.port}/{self.db}"
         )
+
+    @computed_field
+    @property
+    def silver_qualified_table(self) -> str:
+        """Return the fully qualified silver table name."""
+        return f"{self.silver_schema}.{self.silver_table}"
 
 
 class ScraperSettings(BaseSettings):

@@ -1,6 +1,6 @@
 """Date and time utilities."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 
 def parse_iso_datetime(value: str | None) -> datetime | None:
@@ -20,17 +20,30 @@ def parse_iso_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def format_date(date: datetime | None = None) -> str:
+def format_date(dt: date | datetime | None = None) -> str:
     """Format date in ISO format (YYYY-MM-DD).
 
     Used to create partition folders like: dt=2026-02-25
 
     Args:
-        date: DateTime object. If None, uses current date.
+        dt: Date or DateTime object. If None, uses current date.
 
     Returns:
         Formatted date string (YYYY-MM-DD)
     """
-    if date is None:
-        date = datetime.now(UTC)
-    return date.strftime("%Y-%m-%d")
+    if dt is None:
+        dt = datetime.now(UTC)
+    return dt.strftime("%Y-%m-%d")
+
+
+def date_range(days: int) -> list[str]:
+    """Generate a list of date strings for the last N days (including today).
+
+    Args:
+        days: Number of days to look back (1 = today only)
+
+    Returns:
+        List of date strings (YYYY-MM-DD), most recent first
+    """
+    today = datetime.now(UTC)
+    return [format_date(today - timedelta(days=d)) for d in range(days)]
