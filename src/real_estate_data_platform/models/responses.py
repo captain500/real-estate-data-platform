@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from real_estate_data_platform.models.enums import FlowStatus, ScraperMode
+from real_estate_data_platform.models.enums import DateMode, FlowStatus
 from real_estate_data_platform.models.listings import RentalsListing
 
 
@@ -17,7 +17,7 @@ class _BaseResult(BaseModel):
 class ScrapeMetadata(_BaseResult):
     """Metadata about a scrape-to-bronze run, stored as JSON alongside the Parquet file."""
 
-    mode: ScraperMode
+    mode: DateMode
     days: int
     specific_date: date | None = None
     max_pages: int
@@ -50,13 +50,58 @@ class ScrapeToBronzeResult(_BaseResult):
     error: str | None = None
 
 
-class BronzeToSilverResult(_BaseResult):
-    """Result of bronze-to-silver flow execution."""
+class PartitionResult(_BaseResult):
+    """Result of processing a single (source, city, date) partition."""
 
     status: FlowStatus
-    source: str | None = None
-    city: str | None = None
-    partition_date: str | None = None
-    records_read: int = 0
-    records_loaded: int = 0
+    source: str
+    city: str
+    partition_date: str
+    rows_read: int = 0
+    rows_loaded: int = 0
     error: str | None = None
+
+
+class BronzeToSilverResult(_BaseResult):
+    """Result of the full bronze-to-silver flow execution."""
+
+    status: FlowStatus
+    total_read: int = 0
+    total_loaded: int = 0
+    partitions_ok: int = 0
+    partitions_error: int = 0
+    partitions_no_data: int = 0
+    partition_results: list[PartitionResult] = Field(default_factory=list)
+    error: str | None = None
+
+    @classmethod
+    def from_partitions(cls, results: list[PartitionResult]) -> "BronzeToSilverResult":
+        """Aggregate individual partition results into a single flow result.
+
+        Determines the overall status:
+        - ERROR if any partition errored.
+        - COMPLETED_NO_DATA if no rows were read at all.
+        - SUCCESS otherwise.
+        """
+        total_read = sum(r.rows_read for r in results)
+        total_loaded = sum(r.rows_loaded for r in results)
+        ok = sum(1 for r in results if r.status == FlowStatus.SUCCESS)
+        errors = sum(1 for r in results if r.status == FlowStatus.ERROR)
+        no_data = sum(1 for r in results if r.status == FlowStatus.COMPLETED_NO_DATA)
+
+        if errors:
+            status = FlowStatus.ERROR
+        elif total_read == 0:
+            status = FlowStatus.COMPLETED_NO_DATA
+        else:
+            status = FlowStatus.SUCCESS
+
+        return cls(
+            status=status,
+            total_read=total_read,
+            total_loaded=total_loaded,
+            partitions_ok=ok,
+            partitions_error=errors,
+            partitions_no_data=no_data,
+            partition_results=results,
+        )

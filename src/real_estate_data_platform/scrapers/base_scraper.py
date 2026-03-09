@@ -8,7 +8,7 @@ from typing import Self
 import requests
 from bs4 import BeautifulSoup
 
-from real_estate_data_platform.models.enums import City, ScraperMode
+from real_estate_data_platform.models.enums import City, DateMode
 from real_estate_data_platform.models.listings import RentalsListing
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class BaseScraper(ABC):
         self,
         user_agent: str,
         download_delay: float = 2.0,
-        scraper_mode: ScraperMode = ScraperMode.LAST_X_DAYS,
+        scraper_mode: DateMode = DateMode.LAST_X_DAYS,
         days: int = 7,
         specific_date: date | None = None,
     ):
@@ -144,10 +144,10 @@ class BaseScraper(ABC):
         Returns:
             True if listing should be included, False otherwise
         """
-        if self.scraper_mode == ScraperMode.LAST_X_DAYS:
+        if self.scraper_mode == DateMode.LAST_X_DAYS:
             cutoff_date = datetime.now(UTC) - timedelta(days=self.days)
             return listing.published_at >= cutoff_date
-        elif self.scraper_mode == ScraperMode.SPECIFIC_DATE and self.specific_date:
+        elif self.scraper_mode == DateMode.SPECIFIC_DATE and self.specific_date:
             start_of_day = datetime.combine(self.specific_date, datetime.min.time()).replace(
                 tzinfo=UTC
             )

@@ -7,7 +7,7 @@ from prefect import get_run_logger, task
 from prefect.cache_policies import NONE
 
 from real_estate_data_platform.connectors.minio import MinIOStorage
-from real_estate_data_platform.models.enums import ScraperMode
+from real_estate_data_platform.models.enums import DateMode
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.models.responses import ScrapeMetadata, StorageResult
 
@@ -37,7 +37,7 @@ def save_listings_to_minio(
     city: str,
     partition_date: str,
     max_pages: int,
-    mode: ScraperMode,
+    mode: DateMode,
     days: int,
     specific_date: date | None = None,
 ) -> StorageResult:
@@ -50,7 +50,7 @@ def save_listings_to_minio(
         city: City name for partitioning
         partition_date: Date string for partition (YYYY-MM-DD)
         max_pages: Maximum number of pages scraped
-        mode: ScraperMode used (last_x_days or specific_date)
+        mode: DateMode used (last_x_days or specific_date)
         days: Number of days if mode is last_x_days
         specific_date: Specific date if mode is specific_date
 
