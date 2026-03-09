@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from real_estate_data_platform.models.enums import City, ScraperMode
+from real_estate_data_platform.models.enums import City, DateMode
 from real_estate_data_platform.models.listings import RentalsListing
 from real_estate_data_platform.scrapers.kijiji_scraper import KijijiScraper
 
@@ -36,17 +36,17 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=7,
         )
-        listing = _make_listing(published_at=datetime.now(UTC) - timedelta(days=3))
+        listing = _make_listing(published_at=datetime.now(UTC) - timedelta(days=6))
         assert scraper._passes_date_filter(listing) is True
 
     def test_last_x_days_excludes_old_listing(self):
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=7,
         )
         listing = _make_listing(published_at=datetime.now(UTC) - timedelta(days=10))
@@ -56,7 +56,7 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=7,
         )
         # Listing exactly at the cutoff edge (should pass since >= comparison)
@@ -68,7 +68,7 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.SPECIFIC_DATE,
+            scraper_mode=DateMode.SPECIFIC_DATE,
             specific_date=target_date,
         )
         listing = _make_listing(published_at=datetime(2026, 2, 25, 14, 30, 0, tzinfo=UTC))
@@ -79,7 +79,7 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.SPECIFIC_DATE,
+            scraper_mode=DateMode.SPECIFIC_DATE,
             specific_date=target_date,
         )
         listing = _make_listing(published_at=datetime(2026, 2, 24, 23, 59, 59, tzinfo=UTC))
@@ -90,7 +90,7 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.SPECIFIC_DATE,
+            scraper_mode=DateMode.SPECIFIC_DATE,
             specific_date=target_date,
         )
         listing = _make_listing(published_at=datetime(2026, 2, 25, 0, 0, 0, tzinfo=UTC))
@@ -101,7 +101,7 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.SPECIFIC_DATE,
+            scraper_mode=DateMode.SPECIFIC_DATE,
             specific_date=target_date,
         )
         listing = _make_listing(published_at=datetime(2026, 2, 25, 23, 59, 59, 999999, tzinfo=UTC))
@@ -112,7 +112,7 @@ class TestPassesDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.SPECIFIC_DATE,
+            scraper_mode=DateMode.SPECIFIC_DATE,
             specific_date=None,
         )
         listing = _make_listing(published_at=datetime(2020, 1, 1, tzinfo=UTC))
@@ -129,7 +129,7 @@ class TestApplyDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=7,
         )
         recent = _make_listing(
@@ -149,7 +149,7 @@ class TestApplyDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=30,
         )
         listings = [
@@ -164,7 +164,7 @@ class TestApplyDateFilter:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=1,
         )
         listings = [
@@ -196,7 +196,7 @@ class TestParsePage:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=7,
         )
 
@@ -225,7 +225,7 @@ class TestParsePage:
         scraper = KijijiScraper(
             user_agent="TestAgent/1.0",
             download_delay=0,
-            scraper_mode=ScraperMode.LAST_X_DAYS,
+            scraper_mode=DateMode.LAST_X_DAYS,
             days=1,
         )
 
@@ -255,7 +255,7 @@ class TestScraperInit:
         scraper = KijijiScraper(user_agent="TestAgent/1.0")
         assert scraper.user_agent == "TestAgent/1.0"
         assert scraper.download_delay == 2.0
-        assert scraper.scraper_mode == ScraperMode.LAST_X_DAYS
+        assert scraper.scraper_mode == DateMode.LAST_X_DAYS
         assert scraper.days == 7
         assert scraper.specific_date is None
         scraper.close()
@@ -264,13 +264,13 @@ class TestScraperInit:
         scraper = KijijiScraper(
             user_agent="CustomAgent/2.0",
             download_delay=5.0,
-            scraper_mode=ScraperMode.SPECIFIC_DATE,
+            scraper_mode=DateMode.SPECIFIC_DATE,
             days=14,
             specific_date=date(2026, 2, 25),
         )
         assert scraper.user_agent == "CustomAgent/2.0"
         assert scraper.download_delay == 5.0
-        assert scraper.scraper_mode == ScraperMode.SPECIFIC_DATE
+        assert scraper.scraper_mode == DateMode.SPECIFIC_DATE
         assert scraper.days == 14
         assert scraper.specific_date == date(2026, 2, 25)
         scraper.close()
