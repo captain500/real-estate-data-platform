@@ -143,8 +143,16 @@ SILVER_REGISTRY: tuple[ColumnDef, ...] = (
 )
 
 
-# DataFrame / Parquet columns — everything except SQL-managed (e.g. loaded_at).
-SILVER_COLUMNS: list[str] = [c.name for c in SILVER_REGISTRY if c.upsert != UpsertStrategy.MANAGED]
+# DataFrame / Parquet columns — derived from RentalsListing.model_fields to stay
+# in sync with the Pydantic model automatically.
+def _build_silver_columns() -> list[str]:
+    """Generate the silver column list from ``RentalsListing.model_fields``."""
+    from real_estate_data_platform.models.listings import RentalsListing
+
+    return list(RentalsListing.model_fields.keys())
+
+
+SILVER_COLUMNS: list[str] = _build_silver_columns()
 
 # Columns that need "Yes"/"No" → Boolean conversion.
 BOOLEAN_COLUMNS: list[str] = [

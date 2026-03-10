@@ -10,6 +10,7 @@ from typing import Self
 
 import polars as pl
 import psycopg
+import psycopg.sql
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,9 @@ class PostgresStorage:
     def _create_schema(self) -> None:
         """Create the schema and table (DEV only)."""
         with self.conn.cursor() as cur:
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self._schema}")
+            cur.execute(
+                f"CREATE SCHEMA IF NOT EXISTS {psycopg.sql.Identifier(self._schema).as_string(self.conn)}"
+            )
             cur.execute(self._create_table_sql)
         self.conn.commit()
         logger.info("%s created (auto_create_schema=True)", self._qualified)
@@ -121,5 +124,5 @@ class PostgresStorage:
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         self.close()

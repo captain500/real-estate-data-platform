@@ -62,12 +62,6 @@ def listing_no_neighbourhood_html():
 
 
 @pytest.fixture
-def listing_no_neighbourhood_soup():
-    """Load the listing without neighbourhood fixture."""
-    return load_fixture_soup("kijiji_listing_no_neighbourhood.html")
-
-
-@pytest.fixture
 def listing_no_next_data_html():
     """Load the listing without __NEXT_DATA__ fixture as a string."""
     return load_fixture("kijiji_listing_no_next_data.html")

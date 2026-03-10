@@ -24,13 +24,13 @@ class RentalsListing(BaseModel):
     neighbourhood: str | None = None
 
     # Pricing and dates
-    rent: float | None = Field(None, ge=0)
+    rent: float | None = Field(None, gt=0)
     move_in_date: str | None = None
 
     # Property details
     bedrooms: int | None = Field(None, ge=0)
     bathrooms: int | None = Field(None, ge=0)
-    size_sqft: float | None = Field(None, ge=0)
+    size_sqft: float | None = Field(None, gt=0)
     unit_type: str | None = None
     agreement_type: str | None = None
     furnished: str | None = None
