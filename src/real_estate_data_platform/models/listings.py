@@ -30,7 +30,7 @@ class RentalsListing(BaseModel):
     # Property details
     bedrooms: int | None = Field(None, ge=0)
     bathrooms: int | None = Field(None, ge=0)
-    size_sqft: float | None = Field(None, gt=0)
+    size_sqft: float | None = Field(None, ge=0)
     unit_type: str | None = None
     agreement_type: str | None = None
     furnished: str | None = None
