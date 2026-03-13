@@ -139,7 +139,16 @@ class KijijiScraper(BaseScraper):
                 logger.warning("No JSON-LD data found for %s search page", city.value)
                 return listings, failed_count
 
-            for item in data.get("itemListElement", []):
+            all_items = data.get("itemListElement", [])
+            # Skip the first 6 items on each page (promoted/ad listings)
+            items = all_items[6:]
+            logger.info(
+                "Skipped %d promoted listings, processing %d organic listings",
+                min(len(all_items), 6),
+                len(items),
+            )
+
+            for item in items:
                 listing = self._parse_listing(item, city)
                 if listing:
                     listings.append(listing)
