@@ -155,7 +155,6 @@ def scrape_to_bronze(
 
 
 if __name__ == "__main__":
-    # Example usage with Kijiji scraper for a specific date
     result = scrape_to_bronze(
         scraper_type=ScraperType.KIJIJI,
         city=City.TORONTO,
