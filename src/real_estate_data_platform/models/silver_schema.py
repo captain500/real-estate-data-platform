@@ -39,7 +39,6 @@ class UpsertStrategy(StrEnum):
 
     OVERWRITE = auto()  # SET col = EXCLUDED.col (conditional on hash in listings)
     SKIP = auto()  # Primary-key columns — never in SET clause
-    INSERT_ONLY = auto()  # SQL expression on INSERT; excluded from SET (e.g. first_seen_at)
     ALWAYS_UPDATE = auto()  # Always SET col = EXCLUDED.col regardless of hash
     MANAGED = auto()  # SQL expression, included in SET (e.g. loaded_at = NOW())
 
@@ -163,23 +162,8 @@ LISTINGS_REGISTRY: tuple[ColumnDef, ...] = (
     # ── Change detection ─────────────────────────────────────────────────
     ColumnDef("row_hash", SqlType.TEXT, nullable=False, upsert=UpsertStrategy.ALWAYS_UPDATE),
     # ── Temporal tracking ────────────────────────────────────────────────
-    ColumnDef("scraped_at", SqlType.TIMESTAMPTZ, nullable=False),
     ColumnDef(
-        "first_seen_at",
-        SqlType.TIMESTAMPTZ,
-        nullable=False,
-        upsert=UpsertStrategy.INSERT_ONLY,
-        sql_default="NOW()",
-    ),
-    ColumnDef(
-        "last_seen_at", SqlType.TIMESTAMPTZ, nullable=False, upsert=UpsertStrategy.ALWAYS_UPDATE
-    ),
-    ColumnDef(
-        "loaded_at",
-        SqlType.TIMESTAMPTZ,
-        nullable=False,
-        upsert=UpsertStrategy.MANAGED,
-        sql_default="NOW()",
+        "scraped_at", SqlType.TIMESTAMPTZ, nullable=False, upsert=UpsertStrategy.ALWAYS_UPDATE
     ),
 )
 
@@ -207,11 +191,9 @@ NEIGHBOURHOOD_UPDATE_COLUMNS: list[str] = [
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # DataFrame columns for listings (values from the Polars frame).
-# Excludes INSERT_ONLY and MANAGED — those use SQL expressions instead of %s placeholders.
+# Excludes MANAGED — those use SQL expressions instead of %s placeholders.
 LISTING_COLUMNS: list[str] = [
-    c.name
-    for c in LISTINGS_REGISTRY
-    if c.upsert not in (UpsertStrategy.INSERT_ONLY, UpsertStrategy.MANAGED)
+    c.name for c in LISTINGS_REGISTRY if c.upsert != UpsertStrategy.MANAGED
 ]
 
 # Primary-key column names.
@@ -223,11 +205,8 @@ HASH_COLUMNS: list[str] = [c.name for c in LISTINGS_REGISTRY if c.hashed]
 # Name of the hash column.
 HASH_COLUMN: str = "row_hash"
 
-# Column tracking the most recent scrape time for a listing.
-LAST_SEEN_COLUMN: str = "last_seen_at"
-
-# Column used for temporal ordering during deduplication.
-DEDUP_SORT_COLUMN: str = "scraped_at"
+# Column used for temporal ordering and recency guard.
+SCRAPED_AT_COLUMN: str = "scraped_at"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -340,8 +319,8 @@ def build_listings_upsert_sql(schema: str, table: str) -> str:
 
     Behaviour:
 
-    - **New listing** → full INSERT (``first_seen_at`` defaults to ``NOW()``).
-    - **Existing, hash unchanged** → only ``last_seen_at`` is refreshed.
+    - **New listing** → full INSERT.
+    - **Existing, hash unchanged** → only ``scraped_at`` is refreshed.
     - **Existing, hash changed** → all data columns are overwritten.
 
     A ``WHERE`` guard prevents older scrapes from regressing column values.
@@ -350,12 +329,8 @@ def build_listings_upsert_sql(schema: str, table: str) -> str:
     cols_csv = ", ".join(LISTING_COLUMNS)
     placeholders = ", ".join("%s" for _ in LISTING_COLUMNS)
 
-    # INSERT_ONLY + MANAGED columns use SQL expressions in VALUES.
-    expr_cols = [
-        c
-        for c in LISTINGS_REGISTRY
-        if c.upsert in (UpsertStrategy.INSERT_ONLY, UpsertStrategy.MANAGED)
-    ]
+    # MANAGED columns use SQL expressions in VALUES.
+    expr_cols = [c for c in LISTINGS_REGISTRY if c.upsert == UpsertStrategy.MANAGED]
     expr_cols_csv = ", ".join(c.name for c in expr_cols)
     expr_vals_csv = ", ".join(c.sql_default or "NULL" for c in expr_cols)
 
@@ -389,7 +364,7 @@ def build_listings_upsert_sql(schema: str, table: str) -> str:
     set_clause = ",\n    ".join(set_parts)
 
     # WHERE guard: only update when incoming data is at least as recent.
-    where_clause = f"WHERE EXCLUDED.{DEDUP_SORT_COLUMN} >= {qualified}.{LAST_SEEN_COLUMN}"
+    where_clause = f"WHERE EXCLUDED.{SCRAPED_AT_COLUMN} >= {qualified}.{SCRAPED_AT_COLUMN}"
 
     return (
         f"INSERT INTO {qualified} ({all_cols})\n"

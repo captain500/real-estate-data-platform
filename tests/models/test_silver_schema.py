@@ -5,7 +5,6 @@ from real_estate_data_platform.models.silver_schema import (
     HASH_COLUMN,
     HASH_COLUMNS,
     INPUT_COLUMNS,
-    LAST_SEEN_COLUMN,
     LISTING_COLUMNS,
     LISTING_PK_COLUMNS,
     LISTINGS_REGISTRY,
@@ -33,15 +32,13 @@ class TestInputColumnsSync:
 
     def test_every_model_field_covered_by_a_registry(self):
         listing_data_cols = {
-            c.name
-            for c in LISTINGS_REGISTRY
-            if c.upsert not in (UpsertStrategy.MANAGED, UpsertStrategy.INSERT_ONLY)
+            c.name for c in LISTINGS_REGISTRY if c.upsert != UpsertStrategy.MANAGED
         }
         neighbourhood_only_cols = {
             c.name for c in NEIGHBOURHOOD_REGISTRY if c.upsert != UpsertStrategy.MANAGED
         }
         # Computed listing columns not present in the scraping model.
-        computed = {HASH_COLUMN, LAST_SEEN_COLUMN}
+        computed = {HASH_COLUMN}
         all_registry_cols = (listing_data_cols | neighbourhood_only_cols) - computed
         model_cols = set(INPUT_COLUMNS)
         missing = model_cols - all_registry_cols
@@ -81,10 +78,10 @@ class TestListingsDerivedLists:
             col_def = next(c for c in LISTINGS_REGISTRY if c.name == col_name)
             assert col_def.transform == Transform.LOWERCASE
 
-    def test_listing_columns_exclude_managed_and_insert_only(self):
+    def test_listing_columns_exclude_managed(self):
         for col_name in LISTING_COLUMNS:
             col_def = next(c for c in LISTINGS_REGISTRY if c.name == col_name)
-            assert col_def.upsert not in (UpsertStrategy.MANAGED, UpsertStrategy.INSERT_ONLY)
+            assert col_def.upsert != UpsertStrategy.MANAGED
 
     def test_listing_columns_do_not_contain_scores(self):
         for score in ("walk_score", "transit_score", "bike_score"):
@@ -282,36 +279,16 @@ class TestBuildListingsUpsertSql:
         for col in managed:
             assert f"THEN {col.sql_default}" in sql
 
-    def test_insert_only_columns_not_in_set_clause(self):
+    def test_where_guard_uses_scraped_at(self):
         sql = build_listings_upsert_sql("silver", "rentals_listings")
-        set_section = sql.split("DO UPDATE SET\n")[1]
-        insert_only = [c.name for c in LISTINGS_REGISTRY if c.upsert == UpsertStrategy.INSERT_ONLY]
-        for col in insert_only:
-            assert f"{col} = EXCLUDED.{col}" not in set_section
-
-    def test_insert_only_columns_appear_in_insert_cols(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
-        insert_line = sql.split("\n")[0]
-        insert_only = [c.name for c in LISTINGS_REGISTRY if c.upsert == UpsertStrategy.INSERT_ONLY]
-        for col in insert_only:
-            assert col in insert_line
-
-    def test_where_guard_uses_scraped_at_and_last_seen_at(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
-        assert "WHERE EXCLUDED.scraped_at >= silver.rentals_listings.last_seen_at" in sql
+        assert "WHERE EXCLUDED.scraped_at >= silver.rentals_listings.scraped_at" in sql
 
     def test_uses_custom_schema_and_table(self):
         sql = build_listings_upsert_sql("custom_schema", "custom_table")
         assert "INSERT INTO custom_schema.custom_table" in sql
-        assert "custom_schema.custom_table.last_seen_at" in sql
+        assert "custom_schema.custom_table.scraped_at" in sql
 
-    def test_managed_columns_appear_in_values_as_expressions(self):
+    def test_no_sql_expression_columns_in_listings(self):
         sql = build_listings_upsert_sql("silver", "rentals_listings")
         values_line = next(line for line in sql.split("\n") if line.startswith("VALUES"))
-        managed = [
-            c
-            for c in LISTINGS_REGISTRY
-            if c.upsert in (UpsertStrategy.MANAGED, UpsertStrategy.INSERT_ONLY)
-        ]
-        for col in managed:
-            assert col.sql_default in values_line
+        assert "NOW()" not in values_line

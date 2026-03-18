@@ -193,6 +193,6 @@ def bronze_to_silver(
 if __name__ == "__main__":
     result = bronze_to_silver(
         source=DataSource.KIJIJI,
-        mode=DateMode.SPECIFIC_DATE,
-        specific_date=date(2026, 2, 27),
+        mode=DateMode.LAST_X_DAYS,
+        days=30,
     )

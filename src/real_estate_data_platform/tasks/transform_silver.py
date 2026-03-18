@@ -8,17 +8,16 @@ from prefect.cache_policies import NONE
 
 from real_estate_data_platform.models.silver_schema import (
     BOOLEAN_COLUMNS,
-    DEDUP_SORT_COLUMN,
     HASH_COLUMN,
     HASH_COLUMNS,
     INPUT_COLUMNS,
-    LAST_SEEN_COLUMN,
     LISTING_COLUMNS,
     LISTING_PK_COLUMNS,
     LOWERCASE_COLUMNS,
     NEIGHBOURHOOD_COLUMNS,
     NEIGHBOURHOOD_PK_COLUMNS,
     RANGE_VALIDATED_COLUMNS,
+    SCRAPED_AT_COLUMN,
     STRIP_COLUMNS,
     NumericRange,
 )
@@ -80,7 +79,7 @@ def transform_to_silver(df: pl.DataFrame) -> SilverFrames:
     3. Normalise strings, convert booleans, validate numeric ranges (single pass).
     4. Deduplicate by listing PK keeping the latest record.
     5. Extract unique neighbourhoods.
-    6. Compute row hash and add temporal tracking columns for listings.
+    6. Compute row hash for listings.
     7. Select final columns for each table.
 
     Args:
@@ -134,7 +133,7 @@ def transform_to_silver(df: pl.DataFrame) -> SilverFrames:
 
     # 4 — Deduplicate: keep the most recent record for each listing PK
     rows_before_dedup = df.height
-    df = df.sort(DEDUP_SORT_COLUMN, descending=True).unique(subset=LISTING_PK_COLUMNS, keep="first")
+    df = df.sort(SCRAPED_AT_COLUMN, descending=True).unique(subset=LISTING_PK_COLUMNS, keep="first")
     dropped_dedup = rows_before_dedup - df.height
     if dropped_dedup:
         logger.info("Dedup removed %d duplicate rows", dropped_dedup)
@@ -147,10 +146,9 @@ def transform_to_silver(df: pl.DataFrame) -> SilverFrames:
     )
     logger.info("Extracted %d unique neighbourhoods", df_neighbourhoods.height)
 
-    # 6 — Compute row hash and add temporal tracking columns
+    # 6 — Compute row hash
     df = df.with_columns(
         build_row_hash_expr(HASH_COLUMNS).alias(HASH_COLUMN),
-        pl.col(DEDUP_SORT_COLUMN).alias(LAST_SEEN_COLUMN),
     )
 
     # 7 — Select final listing columns
