@@ -46,18 +46,6 @@ class PostgresSettings(BaseSettings):
             f"{self.host}:{self.port}/{self.db}"
         )
 
-    @computed_field
-    @property
-    def silver_qualified_listings(self) -> str:
-        """Return the fully qualified silver listings table name."""
-        return f"{self.silver_schema}.{self.silver_listings_table}"
-
-    @computed_field
-    @property
-    def silver_qualified_neighbourhoods(self) -> str:
-        """Return the fully qualified silver neighbourhoods table name."""
-        return f"{self.silver_schema}.{self.silver_neighbourhoods_table}"
-
 
 class ScraperSettings(BaseSettings):
     """Configuration settings for web scrapers."""

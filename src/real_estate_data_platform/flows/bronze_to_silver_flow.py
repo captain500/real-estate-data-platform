@@ -104,10 +104,7 @@ def process_partition(
         try:
             silver = transform_to_silver(df_bronze)
             rows_loaded = write_silver(pg=pg_listings, df=silver.listings)
-            neighbourhoods_loaded = write_silver(
-                pg=pg_neighbourhoods,
-                df=silver.neighbourhoods,
-            )
+            neighbourhoods_loaded = write_silver(pg=pg_neighbourhoods, df=silver.neighbourhoods)
         except Exception:
             logger.error("ETL failed for %s/%s/%s", source, city, partition_date, exc_info=True)
             return PartitionResult(
@@ -177,11 +174,9 @@ def bronze_to_silver(
 
     summary = BronzeToSilverResult.from_partitions(results)
     logger.info(
-        "Bronze to Silver complete: %d read, %d listings loaded, %d neighbourhoods loaded,"
-        " %d ok / %d no-data / %d error — status=%s",
+        "Bronze to Silver complete: %d read, %d loaded, %d ok / %d no-data / %d error — status=%s",
         summary.total_read,
         summary.total_loaded,
-        summary.total_neighbourhoods_loaded,
         summary.partitions_ok,
         summary.partitions_no_data,
         summary.partitions_error,
