@@ -1,5 +1,7 @@
 """Prefect tasks for bronze to silver transformations using Polars."""
 
+from typing import NamedTuple
+
 import polars as pl
 from prefect import get_run_logger, task
 from prefect.cache_policies import NONE
@@ -7,16 +9,30 @@ from prefect.cache_policies import NONE
 from real_estate_data_platform.models.silver_schema import (
     BOOLEAN_COLUMNS,
     DEDUP_SORT_COLUMN,
+    HASH_COLUMN,
+    HASH_COLUMNS,
+    INPUT_COLUMNS,
+    LAST_SEEN_COLUMN,
+    LISTING_COLUMNS,
+    LISTING_PK_COLUMNS,
     LOWERCASE_COLUMNS,
-    PK_COLUMNS,
+    NEIGHBOURHOOD_COLUMNS,
+    NEIGHBOURHOOD_PK_COLUMNS,
     RANGE_VALIDATED_COLUMNS,
-    SILVER_COLUMNS,
     STRIP_COLUMNS,
     NumericRange,
 )
+from real_estate_data_platform.utils.hashing import build_row_hash_expr
 
 _TRUTHY_VALUES = {"yes", "included"}
 _FALSY_VALUES = {"no", "not included"}
+
+
+class SilverFrames(NamedTuple):
+    """Pair of DataFrames produced by the bronze-to-silver transform."""
+
+    listings: pl.DataFrame
+    neighbourhoods: pl.DataFrame
 
 
 def _to_boolean(col_name: str) -> pl.Expr:
@@ -55,35 +71,37 @@ def _apply_range(col_name: str, rng: NumericRange) -> pl.Expr:
 
 
 @task(cache_policy=NONE)
-def transform_to_silver(df: pl.DataFrame) -> pl.DataFrame:
+def transform_to_silver(df: pl.DataFrame) -> SilverFrames:
     """Clean and normalise a bronze DataFrame for the silver layer.
 
     Steps:
     1. Add any missing expected columns (filled with null).
-    2. Drop rows where any primary-key column is null or empty.
+    2. Drop rows where any listing primary-key column is null or empty.
     3. Normalise strings, convert booleans, validate numeric ranges (single pass).
-    4. Deduplicate by PK columns keeping the latest record.
-    5. Select only the columns needed for the silver table.
+    4. Deduplicate by listing PK keeping the latest record.
+    5. Extract unique neighbourhoods.
+    6. Compute row hash and add temporal tracking columns for listings.
+    7. Select final columns for each table.
 
     Args:
         df: Raw Polars DataFrame read from MinIO (bronze layer)
 
     Returns:
-        Cleaned Polars DataFrame ready for PostgreSQL upsert
+        SilverFrames with ``listings`` and ``neighbourhoods`` DataFrames.
     """
     logger = get_run_logger()
     initial_rows = df.height
     logger.info("Starting silver transform on %d rows", initial_rows)
 
-    # 1 — Ensure every expected column exists (fill with null)
-    missing = [pl.lit(None).alias(c) for c in SILVER_COLUMNS if c not in df.columns]
+    # 1 — Ensure every expected input column exists (fill with null)
+    missing = [pl.lit(None).alias(c) for c in INPUT_COLUMNS if c not in df.columns]
     if missing:
         df = df.with_columns(missing)
 
-    # 2 — Drop rows where any primary-key column is null or empty
+    # 2 — Drop rows where any listing PK column is null or empty
     pk_checks = [
         pl.col(pk).is_not_null() & (pl.col(pk).cast(pl.Utf8).str.strip_chars().str.len_chars() > 0)
-        for pk in PK_COLUMNS
+        for pk in LISTING_PK_COLUMNS
     ]
     df = df.filter(pl.all_horizontal(pk_checks))
     rows_after_pk = df.height
@@ -114,21 +132,37 @@ def transform_to_silver(df: pl.DataFrame) -> pl.DataFrame:
     if exprs:
         df = df.with_columns(exprs)
 
-    # 4 — Deduplicate: keep the most recent record for each PK
+    # 4 — Deduplicate: keep the most recent record for each listing PK
     rows_before_dedup = df.height
-    df = df.sort(DEDUP_SORT_COLUMN, descending=True).unique(subset=PK_COLUMNS, keep="first")
+    df = df.sort(DEDUP_SORT_COLUMN, descending=True).unique(subset=LISTING_PK_COLUMNS, keep="first")
     dropped_dedup = rows_before_dedup - df.height
     if dropped_dedup:
         logger.info("Dedup removed %d duplicate rows", dropped_dedup)
 
-    # 5 — Select silver columns in the expected order
-    df = df.select(SILVER_COLUMNS)
+    # 5 — Extract unique neighbourhoods (before dropping score columns)
+    df_neighbourhoods = (
+        df.select(NEIGHBOURHOOD_COLUMNS)
+        .drop_nulls(subset=NEIGHBOURHOOD_PK_COLUMNS)
+        .unique(subset=NEIGHBOURHOOD_PK_COLUMNS)
+    )
+    logger.info("Extracted %d unique neighbourhoods", df_neighbourhoods.height)
+
+    # 6 — Compute row hash and add temporal tracking columns
+    df = df.with_columns(
+        build_row_hash_expr(HASH_COLUMNS).alias(HASH_COLUMN),
+        pl.col(DEDUP_SORT_COLUMN).alias(LAST_SEEN_COLUMN),
+    )
+
+    # 7 — Select final listing columns
+    df_listings = df.select(LISTING_COLUMNS)
 
     logger.info(
-        "Silver transform complete: %d to %d rows (-%d PK invalid, -%d duplicates)",
+        "Silver transform complete: %d → %d listings, %d neighbourhoods"
+        " (-%d PK invalid, -%d duplicates)",
         initial_rows,
-        df.height,
+        df_listings.height,
+        df_neighbourhoods.height,
         dropped_pk,
         dropped_dedup,
     )
-    return df
+    return SilverFrames(listings=df_listings, neighbourhoods=df_neighbourhoods)

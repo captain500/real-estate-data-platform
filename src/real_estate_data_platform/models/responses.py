@@ -59,6 +59,7 @@ class PartitionResult(_BaseResult):
     partition_date: str
     rows_read: int = 0
     rows_loaded: int = 0
+    neighbourhoods_loaded: int = 0
     error: str | None = None
 
 
@@ -68,6 +69,7 @@ class BronzeToSilverResult(_BaseResult):
     status: FlowStatus
     total_read: int = 0
     total_loaded: int = 0
+    total_neighbourhoods_loaded: int = 0
     partitions_ok: int = 0
     partitions_error: int = 0
     partitions_no_data: int = 0
@@ -85,6 +87,7 @@ class BronzeToSilverResult(_BaseResult):
         """
         total_read = sum(r.rows_read for r in results)
         total_loaded = sum(r.rows_loaded for r in results)
+        total_neighbourhoods_loaded = sum(r.neighbourhoods_loaded for r in results)
         ok = sum(1 for r in results if r.status == FlowStatus.SUCCESS)
         errors = sum(1 for r in results if r.status == FlowStatus.ERROR)
         no_data = sum(1 for r in results if r.status == FlowStatus.COMPLETED_NO_DATA)
@@ -100,6 +103,7 @@ class BronzeToSilverResult(_BaseResult):
             status=status,
             total_read=total_read,
             total_loaded=total_loaded,
+            total_neighbourhoods_loaded=total_neighbourhoods_loaded,
             partitions_ok=ok,
             partitions_error=errors,
             partitions_no_data=no_data,

@@ -33,7 +33,8 @@ class PostgresSettings(BaseSettings):
     password: SecretStr = Field(default=SecretStr("etl_pass"))
     db: str = Field(default="etl_db")
     silver_schema: str = Field(default="silver")
-    silver_table: str = Field(default="rentals_listings")
+    silver_listings_table: str = Field(default="rentals_listings")
+    silver_neighbourhoods_table: str = Field(default="neighbourhoods")
 
     @computed_field
     @property
@@ -47,9 +48,15 @@ class PostgresSettings(BaseSettings):
 
     @computed_field
     @property
-    def silver_qualified_table(self) -> str:
-        """Return the fully qualified silver table name."""
-        return f"{self.silver_schema}.{self.silver_table}"
+    def silver_qualified_listings(self) -> str:
+        """Return the fully qualified silver listings table name."""
+        return f"{self.silver_schema}.{self.silver_listings_table}"
+
+    @computed_field
+    @property
+    def silver_qualified_neighbourhoods(self) -> str:
+        """Return the fully qualified silver neighbourhoods table name."""
+        return f"{self.silver_schema}.{self.silver_neighbourhoods_table}"
 
 
 class ScraperSettings(BaseSettings):

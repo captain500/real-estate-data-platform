@@ -10,11 +10,15 @@ from real_estate_data_platform.connectors.postgres import PostgresStorage
 from real_estate_data_platform.models.enums import City, DataSource, DateMode, FlowStatus
 from real_estate_data_platform.models.responses import BronzeToSilverResult, PartitionResult
 from real_estate_data_platform.models.silver_schema import (
-    SILVER_COLUMNS,
+    LISTING_COLUMNS,
+    LISTINGS_REGISTRY,
+    NEIGHBOURHOOD_COLUMNS,
+    NEIGHBOURHOOD_REGISTRY,
     build_create_table_sql,
-    build_upsert_sql,
+    build_listings_upsert_sql,
+    build_neighbourhood_upsert_sql,
 )
-from real_estate_data_platform.tasks.load_silver import write_silver_listings
+from real_estate_data_platform.tasks.load_silver import write_silver
 from real_estate_data_platform.tasks.read_bronze import read_bronze_listings
 from real_estate_data_platform.tasks.transform_silver import transform_to_silver
 from real_estate_data_platform.utils.dates import date_range, format_date
@@ -46,23 +50,46 @@ def process_partition(
             secure=(settings.environment == Environment.PROD),
         )
 
-        schema = settings.postgres.silver_schema
-        table = settings.postgres.silver_table
-        pg = PostgresStorage(
-            dsn=settings.postgres.dsn,
+        pg_cfg = settings.postgres
+        schema = pg_cfg.silver_schema
+        auto_create = settings.environment != Environment.PROD
+
+        pg_listings = PostgresStorage(
+            dsn=pg_cfg.dsn,
             schema=schema,
-            table=table,
-            upsert_sql=build_upsert_sql(schema=schema, table=table),
-            columns=SILVER_COLUMNS,
-            create_table_sql=build_create_table_sql(schema=schema, table=table),
-            auto_create_schema=(settings.environment != Environment.PROD),
+            table=pg_cfg.silver_listings_table,
+            upsert_sql=build_listings_upsert_sql(schema=schema, table=pg_cfg.silver_listings_table),
+            columns=LISTING_COLUMNS,
+            create_table_sql=build_create_table_sql(
+                LISTINGS_REGISTRY,
+                schema=schema,
+                table=pg_cfg.silver_listings_table,
+            ),
+            auto_create_schema=auto_create,
+        )
+
+        pg_neighbourhoods = PostgresStorage(
+            dsn=pg_cfg.dsn,
+            schema=schema,
+            table=pg_cfg.silver_neighbourhoods_table,
+            upsert_sql=build_neighbourhood_upsert_sql(
+                schema=schema,
+                table=pg_cfg.silver_neighbourhoods_table,
+            ),
+            columns=NEIGHBOURHOOD_COLUMNS,
+            create_table_sql=build_create_table_sql(
+                NEIGHBOURHOOD_REGISTRY,
+                schema=schema,
+                table=pg_cfg.silver_neighbourhoods_table,
+            ),
+            auto_create_schema=auto_create,
         )
     except Exception as exc:
         logger.error("Connector init failed: %s", exc)
         return PartitionResult(status=FlowStatus.ERROR, **partition, error=f"Connector init: {exc}")
 
     # Read bronze data, transform to silver, and load into PostgreSQL
-    with pg:
+    with pg_listings, pg_neighbourhoods:
         df_bronze = read_bronze_listings(
             storage=minio_storage,
             source=source,
@@ -75,8 +102,12 @@ def process_partition(
         rows_read = df_bronze.height
 
         try:
-            df_silver = transform_to_silver(df_bronze)
-            rows_loaded = write_silver_listings(pg=pg, df=df_silver)
+            silver = transform_to_silver(df_bronze)
+            rows_loaded = write_silver(pg=pg_listings, df=silver.listings)
+            neighbourhoods_loaded = write_silver(
+                pg=pg_neighbourhoods,
+                df=silver.neighbourhoods,
+            )
         except Exception:
             logger.error("ETL failed for %s/%s/%s", source, city, partition_date, exc_info=True)
             return PartitionResult(
@@ -91,6 +122,7 @@ def process_partition(
         **partition,
         rows_read=rows_read,
         rows_loaded=rows_loaded,
+        neighbourhoods_loaded=neighbourhoods_loaded,
     )
 
 
@@ -145,9 +177,11 @@ def bronze_to_silver(
 
     summary = BronzeToSilverResult.from_partitions(results)
     logger.info(
-        "Bronze to Silver complete: %d read, %d loaded, %d ok / %d no-data / %d error — status=%s",
+        "Bronze to Silver complete: %d read, %d listings loaded, %d neighbourhoods loaded,"
+        " %d ok / %d no-data / %d error — status=%s",
         summary.total_read,
         summary.total_loaded,
+        summary.total_neighbourhoods_loaded,
         summary.partitions_ok,
         summary.partitions_no_data,
         summary.partitions_error,
