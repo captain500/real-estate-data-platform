@@ -109,3 +109,10 @@ class BronzeToSilverResult(_BaseResult):
             partitions_no_data=no_data,
             partition_results=results,
         )
+
+
+class SilverToGoldResult(_BaseResult):
+    """Result of the silver-to-gold flow execution."""
+
+    status: FlowStatus
+    error: str | None = None

@@ -25,7 +25,7 @@ class MinIOSettings(BaseSettings):
 class PostgresSettings(BaseSettings):
     """Configuration settings for PostgreSQL database connection."""
 
-    model_config = SettingsConfigDict(env_prefix="POSTGRES_", case_sensitive=False)
+    model_config = SettingsConfigDict(env_prefix="POSTGRES_", case_sensitive=False, extra="ignore")
 
     host: str = Field(default="postgres")
     port: int = Field(default=5432, ge=1024, le=65535)
@@ -45,6 +45,15 @@ class PostgresSettings(BaseSettings):
             f"{self.password.get_secret_value()}@"
             f"{self.host}:{self.port}/{self.db}"
         )
+
+
+class DbtSettings(BaseSettings):
+    """Configuration settings for dbt."""
+
+    model_config = SettingsConfigDict(env_prefix="DBT_", case_sensitive=False)
+
+    project_dir: str = Field(default="src/real_estate_data_platform/dbt")
+    profiles_dir: str = Field(default="src/real_estate_data_platform/dbt")
 
 
 class ScraperSettings(BaseSettings):
@@ -75,6 +84,7 @@ class Settings(BaseSettings):
     minio: MinIOSettings = Field(default_factory=MinIOSettings)
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
     scraper: ScraperSettings = Field(default_factory=ScraperSettings)
+    dbt: DbtSettings = Field(default_factory=DbtSettings)
 
 
 settings = Settings()
