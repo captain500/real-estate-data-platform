@@ -52,7 +52,7 @@ class TestRunDbt:
         mock_runner_cls.return_value = mock_runner
 
         run_dbt.fn(
-            args=["run", "--select", "rentals_listings"],
+            args=["run", "--select", "rental_listings"],
             project_dir="/custom/path",
             profiles_dir="/custom/profiles",
         )
@@ -60,4 +60,4 @@ class TestRunDbt:
         settings_arg = mock_runner_cls.call_args.kwargs["settings"]
         assert settings_arg.project_dir == Path("/custom/path")
         assert settings_arg.profiles_dir == Path("/custom/profiles")
-        mock_runner.invoke.assert_called_once_with(["run", "--select", "rentals_listings"])
+        mock_runner.invoke.assert_called_once_with(["run", "--select", "rental_listings"])

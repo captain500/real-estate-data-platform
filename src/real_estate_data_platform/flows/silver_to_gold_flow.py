@@ -14,11 +14,11 @@ def silver_to_gold() -> SilverToGoldResult:
 
     Executes three dbt steps sequentially:
 
-    1. ``dbt snapshot`` — applies SCD2 logic on ``silver.rentals_listings``,
-       creating / updating versioned rows in ``gold._snap_fact_rentals_listings``.
-    2. ``dbt run --select fact_rentals_listings`` — refreshes the view that
+    1. ``dbt snapshot`` — applies SCD2 logic on ``silver.rental_listings``,
+       creating / updating versioned rows in ``gold._snap_fct_rental_listings``.
+    2. ``dbt run --select fct_rental_listings`` — refreshes the view that
        exposes clean temporal columns (``valid_from``, ``valid_to``, ``is_current``).
-    3. ``dbt run --select dim_neighbourhood`` — refreshes the neighbourhood
+    3. ``dbt run --select dim_neighbourhoods`` — refreshes the neighbourhood
        dimension (insert-only, no SCD2).
 
     Returns:
@@ -26,17 +26,19 @@ def silver_to_gold() -> SilverToGoldResult:
     """
     logger = get_run_logger()
     dbt_cfg = settings.dbt
+    target = settings.environment.value
 
     logger.info(
-        "Starting silver to gold flow (project_dir=%s, profiles_dir=%s)",
+        "Starting silver to gold flow (project_dir=%s, profiles_dir=%s, target=%s)",
         dbt_cfg.project_dir,
         dbt_cfg.profiles_dir,
+        target,
     )
 
     # 1. Apply SCD2 via using snapshot
     try:
         run_dbt(
-            args=["snapshot"],
+            args=["snapshot", "--target", target],
             project_dir=dbt_cfg.project_dir,
             profiles_dir=dbt_cfg.profiles_dir,
         )
@@ -47,7 +49,14 @@ def silver_to_gold() -> SilverToGoldResult:
     # 2. Refresh gold models (fact view + dim table)
     try:
         run_dbt(
-            args=["run", "--select", "fact_rentals_listings", "dim_neighbourhood"],
+            args=[
+                "run",
+                "--select",
+                "fct_rental_listings",
+                "dim_neighbourhoods",
+                "--target",
+                target,
+            ],
             project_dir=dbt_cfg.project_dir,
             profiles_dir=dbt_cfg.profiles_dir,
         )

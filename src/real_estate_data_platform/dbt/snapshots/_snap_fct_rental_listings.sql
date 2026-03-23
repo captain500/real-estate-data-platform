@@ -1,8 +1,15 @@
--- Gold layer: SCD2 fact table – public interface over the dbt snapshot.
--- Renames dbt-generated columns and adds is_current for easy filtering.
+{% snapshot _snap_fct_rental_listings %}
+
+{{
+    config(
+        target_schema='gold',
+        unique_key="listing_id || '~' || website",
+        strategy='check',
+        check_cols=['row_hash'],
+    )
+}}
 
 SELECT
-    dbt_scd_id        AS scd_id,
     -- Core identification
     listing_id,
     website,
@@ -64,11 +71,11 @@ SELECT
     air_conditioning,
     -- Change detection
     row_hash,
-    -- Temporal (source)
-    scraped_at,
-    -- SCD2 temporal
-    dbt_valid_from    AS valid_from,
-    dbt_valid_to      AS valid_to,
-    dbt_valid_to IS NULL AS is_current,
-    dbt_updated_at    AS updated_at
-FROM {{ ref('_snap_fact_rentals_listings') }}
+    -- Temporal
+    scraped_at
+-- TODO: cuando silver crezca (100k+ filas), considerar añadir filtro temporal
+-- para evitar escanear toda la tabla. Ejemplo:
+-- WHERE scraped_at >= current_date - interval '7 days'
+FROM {{ source('silver', 'rental_listings') }}
+
+{% endsnapshot %}

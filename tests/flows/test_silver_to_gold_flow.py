@@ -24,7 +24,7 @@ class TestSilverToGoldFlow:
         # Verify snapshot call
         snapshot_call = mock_run_dbt.call_args_list[0]
         assert snapshot_call == call(
-            args=["snapshot"],
+            args=["snapshot", "--target", "dev"],
             project_dir="src/real_estate_data_platform/dbt",
             profiles_dir="src/real_estate_data_platform/dbt",
         )
@@ -32,7 +32,14 @@ class TestSilverToGoldFlow:
         # Verify run call includes both gold models
         run_call = mock_run_dbt.call_args_list[1]
         assert run_call == call(
-            args=["run", "--select", "fact_rentals_listings", "dim_neighbourhood"],
+            args=[
+                "run",
+                "--select",
+                "fct_rental_listings",
+                "dim_neighbourhoods",
+                "--target",
+                "dev",
+            ],
             project_dir="src/real_estate_data_platform/dbt",
             profiles_dir="src/real_estate_data_platform/dbt",
         )

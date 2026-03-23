@@ -75,12 +75,12 @@ src/real_estate_data_platform/
 │   ├── dbt_project.yml          # dbt project configuration
 │   ├── profiles.yml             # PostgreSQL connection (env_var-based)
 │   ├── snapshots/
-│   │   └── _snap_fact_rentals_listings.sql   # SCD2 snapshot (check strategy on row_hash)
+│   │   └── _snap_fct_rental_listings.sql     # SCD2 snapshot (check strategy on row_hash)
 │   └── models/
-│       ├── sources.yml          # Silver sources (rentals_listings, neighbourhoods)
+│       ├── sources.yml          # Silver sources (rental_listings, neighbourhoods)
 │       └── gold/
-│           ├── fact_rentals_listings.sql      # Fact view over snapshot (valid_from/to, is_current)
-│           └── dim_neighbourhood.sql          # Neighbourhood dimension (incremental, INSERT-only)
+│           ├── fct_rental_listings.sql        # Fact view over snapshot (valid_from/to, is_current, price_per_sqft)
+│           └── dim_neighbourhoods.sql         # Neighbourhood dimension (incremental, INSERT-only)
 ├── utils/
 │   ├── dates.py                 # parse_iso_datetime, format_date, date_range
 │   ├── hashing.py               # row_hash computation (md5)
@@ -111,7 +111,7 @@ raw/
 
 ### Silver (Clean & Deduplicated)
 
-- **Storage:** PostgreSQL (`silver.rentals_listings`, `silver.neighbourhoods`)
+- **Storage:** PostgreSQL (`silver.rental_listings`, `silver.neighbourhoods`)
 - **Processing:** Polars
 - **Schema:** 48 columns defined in a centralised registry (`silver_schema.py`)
 - **Upsert:** `INSERT ON CONFLICT DO UPDATE` with `scraped_at` guard (idempotent — reprocessing older data doesn't regress values)
@@ -126,9 +126,9 @@ raw/
 
 | Table | Type | Description |
 |---|---|---|
-| `_snap_fact_rentals_listings` | Snapshot (internal) | Raw SCD2 rows with `dbt_valid_from`, `dbt_valid_to` |
-| `fact_rentals_listings` | View | Public interface — renames temporal columns, adds `is_current` |
-| `dim_neighbourhood` | Incremental | Neighbourhood dimension with surrogate key (`neighbourhood_sk`), INSERT-only |
+| `_snap_fct_rental_listings` | Snapshot (internal) | Raw SCD2 rows with `dbt_valid_from`, `dbt_valid_to` |
+| `fct_rental_listings` | View | Public interface — renames temporal columns, adds `is_current`, `neighbourhood_sk`, `price_per_sqft` |
+| `dim_neighbourhoods` | Incremental | Neighbourhood dimension with surrogate key (`neighbourhood_sk`), INSERT-only |
 
 **Snapshot unique key:** `listing_id || '~' || website` (composite business key — same listing ID can exist across different websites).
 
@@ -192,8 +192,8 @@ result = bronze_to_silver(
 
 Runs dbt in-process via `PrefectDbtRunner`. Executes two steps sequentially:
 
-1. `dbt snapshot` — applies SCD2 on `silver.rentals_listings` → `gold._snap_fact_rentals_listings`
-2. `dbt run --select fact_rentals_listings dim_neighbourhood` — refreshes the fact view and the neighbourhood dimension
+1. `dbt snapshot` — applies SCD2 on `silver.rental_listings` → `gold._snap_fct_rental_listings`
+2. `dbt run --select fct_rental_listings dim_neighbourhoods` — refreshes the fact view and the neighbourhood dimension
 
 ```python
 from real_estate_data_platform.flows.silver_to_gold_flow import silver_to_gold
@@ -235,7 +235,7 @@ POSTGRES__USER=etl_user
 POSTGRES__PASSWORD=etl_pass
 POSTGRES__DB=etl_db
 POSTGRES__SILVER_SCHEMA=silver
-POSTGRES__SILVER_LISTINGS_TABLE=rentals_listings
+POSTGRES__SILVER_LISTINGS_TABLE=rental_listings
 POSTGRES__SILVER_NEIGHBOURHOODS_TABLE=neighbourhoods
 
 SCRAPER__USER_AGENT=Mozilla/5.0 ...

@@ -1,5 +1,6 @@
 """Prefect task for executing dbt commands."""
 
+from dotenv import load_dotenv
 from prefect import get_run_logger, task
 from prefect.cache_policies import NONE
 from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
@@ -20,6 +21,8 @@ def run_dbt(args: list[str], project_dir: str, profiles_dir: str) -> None:
     """
     logger = get_run_logger()
     logger.info("Running dbt %s (project_dir=%s)", " ".join(args), project_dir)
+
+    load_dotenv(override=False)
 
     runner = PrefectDbtRunner(
         settings=PrefectDbtSettings(

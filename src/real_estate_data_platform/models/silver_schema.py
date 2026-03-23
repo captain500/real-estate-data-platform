@@ -2,7 +2,7 @@
 
 Two normalised tables:
 
-- ``rentals_listings``: current state of each listing with hash-based change detection.
+- ``rental_listings``: current state of each listing with hash-based change detection.
 - ``neighbourhoods``: unique (neighbourhood, city) pairs with walkability scores.
 """
 

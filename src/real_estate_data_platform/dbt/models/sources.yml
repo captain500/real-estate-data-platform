@@ -4,7 +4,7 @@ sources:
   - name: silver
     schema: silver
     tables:
-      - name: rentals_listings
+      - name: rental_listings
         description: >
           Current-state rental listings loaded by the bronze-to-silver ETL.
           Each row represents the latest scrape of a unique (listing_id, website) pair.

@@ -132,21 +132,21 @@ class TestBuildCreateTableSql:
     """Tests for the CREATE TABLE generator."""
 
     def test_listings_starts_with_create_table(self):
-        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rentals_listings")
-        assert sql.startswith("CREATE TABLE IF NOT EXISTS silver.rentals_listings")
+        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rental_listings")
+        assert sql.startswith("CREATE TABLE IF NOT EXISTS silver.rental_listings")
 
     def test_listings_contains_all_registry_columns(self):
-        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rentals_listings")
+        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rental_listings")
         for col in LISTINGS_REGISTRY:
             assert col.name in sql
 
     def test_listings_contains_primary_key_clause(self):
-        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rentals_listings")
+        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rental_listings")
         pk_csv = ", ".join(LISTING_PK_COLUMNS)
         assert f"PRIMARY KEY ({pk_csv})" in sql
 
     def test_listings_not_null_columns_have_constraint(self):
-        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rentals_listings")
+        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rental_listings")
         not_null_cols = [c for c in LISTINGS_REGISTRY if not c.nullable]
         for col in not_null_cols:
             lines = sql.split("\n")
@@ -156,7 +156,7 @@ class TestBuildCreateTableSql:
             assert "NOT NULL" in col_line, f"{col.name} should be NOT NULL"
 
     def test_listings_managed_column_has_default(self):
-        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rentals_listings")
+        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rental_listings")
         managed = [c for c in LISTINGS_REGISTRY if c.sql_default]
         for col in managed:
             lines = sql.split("\n")
@@ -179,7 +179,7 @@ class TestBuildCreateTableSql:
         assert "custom_schema.custom_table" in sql
 
     def test_sql_types_match_registry(self):
-        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rentals_listings")
+        sql = build_create_table_sql(LISTINGS_REGISTRY, "silver", "rental_listings")
         for col in LISTINGS_REGISTRY:
             col_lines = [
                 line for line in sql.split("\n") if col.name in line and "PRIMARY KEY" not in line
@@ -240,48 +240,48 @@ class TestBuildListingsUpsertSql:
     """Tests for the hash-aware listings INSERT ON CONFLICT generator."""
 
     def test_starts_with_insert_into(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
-        assert sql.startswith("INSERT INTO silver.rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
+        assert sql.startswith("INSERT INTO silver.rental_listings")
 
     def test_contains_all_listing_columns(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         for col in LISTING_COLUMNS:
             assert col in sql
 
     def test_has_correct_number_of_placeholders(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         values_line = next(line for line in sql.split("\n") if line.startswith("VALUES"))
         placeholder_count = values_line.count("%s")
         assert placeholder_count == len(LISTING_COLUMNS)
 
     def test_on_conflict_uses_listing_pk(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         pk_csv = ", ".join(LISTING_PK_COLUMNS)
         assert f"ON CONFLICT ({pk_csv})" in sql
 
     def test_always_update_columns_are_unconditional(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         always = [c.name for c in LISTINGS_REGISTRY if c.upsert == UpsertStrategy.ALWAYS_UPDATE]
         set_section = sql.split("DO UPDATE SET\n")[1]
         for col in always:
             assert f"{col} = EXCLUDED.{col}" in set_section
 
     def test_overwrite_columns_are_conditional_on_hash(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         overwrite = [c.name for c in LISTINGS_REGISTRY if c.upsert == UpsertStrategy.OVERWRITE]
         for col in overwrite:
-            assert f"EXCLUDED.{HASH_COLUMN} != silver.rentals_listings.{HASH_COLUMN}" in sql
+            assert f"EXCLUDED.{HASH_COLUMN} != silver.rental_listings.{HASH_COLUMN}" in sql
             assert f"THEN EXCLUDED.{col}" in sql
 
     def test_managed_columns_conditional_on_hash(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         managed = [c for c in LISTINGS_REGISTRY if c.upsert == UpsertStrategy.MANAGED]
         for col in managed:
             assert f"THEN {col.sql_default}" in sql
 
     def test_where_guard_uses_scraped_at(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
-        assert "WHERE EXCLUDED.scraped_at >= silver.rentals_listings.scraped_at" in sql
+        sql = build_listings_upsert_sql("silver", "rental_listings")
+        assert "WHERE EXCLUDED.scraped_at >= silver.rental_listings.scraped_at" in sql
 
     def test_uses_custom_schema_and_table(self):
         sql = build_listings_upsert_sql("custom_schema", "custom_table")
@@ -289,6 +289,6 @@ class TestBuildListingsUpsertSql:
         assert "custom_schema.custom_table.scraped_at" in sql
 
     def test_no_sql_expression_columns_in_listings(self):
-        sql = build_listings_upsert_sql("silver", "rentals_listings")
+        sql = build_listings_upsert_sql("silver", "rental_listings")
         values_line = next(line for line in sql.split("\n") if line.startswith("VALUES"))
         assert "NOW()" not in values_line

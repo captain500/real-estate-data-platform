@@ -12,10 +12,10 @@ from real_estate_data_platform.connectors.postgres import PostgresStorage
 # ---------------------------------------------------------------------------
 _DSN = "postgresql://user:pass@localhost:5432/testdb"
 _SCHEMA = "silver"
-_TABLE = "rentals_listings"
-_UPSERT_SQL = "INSERT INTO silver.rentals_listings (a, b) VALUES (%s, %s) ON CONFLICT DO NOTHING"
+_TABLE = "rental_listings"
+_UPSERT_SQL = "INSERT INTO silver.rental_listings (a, b) VALUES (%s, %s) ON CONFLICT DO NOTHING"
 _COLUMNS = ["a", "b"]
-_CREATE_TABLE_SQL = "CREATE TABLE IF NOT EXISTS silver.rentals_listings (a TEXT, b TEXT)"
+_CREATE_TABLE_SQL = "CREATE TABLE IF NOT EXISTS silver.rental_listings (a TEXT, b TEXT)"
 
 
 def _build_storage(

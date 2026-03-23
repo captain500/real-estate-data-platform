@@ -1,28 +1,24 @@
-{% snapshot _snap_fact_rentals_listings %}
-
-{{
-    config(
-        target_schema='gold',
-        unique_key="listing_id || '~' || website",
-        strategy='check',
-        check_cols=['row_hash'],
-    )
-}}
+-- Gold layer: SCD2 fact table – public interface over the dbt snapshot.
+-- Renames dbt-generated columns, adds neighbourhood FK, calculated metrics,
+-- and is_current for easy filtering.
 
 SELECT
+    dbt_scd_id        AS scd_id,
     -- Core identification
     listing_id,
     website,
     url,
     published_at,
     title,
-    -- Address
+    -- Address (street is a degenerate dimension — lives in the fact)
     street,
-    city,
-    neighbourhood,
+    -- FK to dim_neighbourhoods (replaces city + neighbourhood)
+    md5(neighbourhood || '~' || city) AS neighbourhood_sk,
     -- Pricing & dates
     rent,
     move_in_date,
+    -- Calculated metrics
+    rent / NULLIF(size_sqft, 0) AS price_per_sqft,
     -- Property details
     bedrooms,
     bathrooms,
@@ -71,11 +67,11 @@ SELECT
     air_conditioning,
     -- Change detection
     row_hash,
-    -- Temporal
-    scraped_at
--- TODO: cuando silver crezca (100k+ filas), considerar añadir filtro temporal
--- para evitar escanear toda la tabla. Ejemplo:
--- WHERE scraped_at >= current_date - interval '7 days'
-FROM {{ source('silver', 'rentals_listings') }}
-
-{% endsnapshot %}
+    -- Temporal (source)
+    scraped_at,
+    -- SCD2 temporal
+    dbt_valid_from    AS valid_from,
+    dbt_valid_to      AS valid_to,
+    dbt_valid_to IS NULL AS is_current,
+    dbt_updated_at    AS updated_at
+FROM {{ ref('_snap_fct_rental_listings') }}

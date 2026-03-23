@@ -33,7 +33,7 @@ class PostgresSettings(BaseSettings):
     password: SecretStr = Field(default=SecretStr("etl_pass"))
     db: str = Field(default="etl_db")
     silver_schema: str = Field(default="silver")
-    silver_listings_table: str = Field(default="rentals_listings")
+    silver_listings_table: str = Field(default="rental_listings")
     silver_neighbourhoods_table: str = Field(default="neighbourhoods")
 
     @computed_field
