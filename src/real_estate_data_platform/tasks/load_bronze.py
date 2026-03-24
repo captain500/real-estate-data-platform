@@ -22,11 +22,7 @@ def listings_to_dataframe(listings: list[RentalsListing]) -> pl.DataFrame:
     Returns:
         Polars DataFrame with one row per listing
     """
-    logger = get_run_logger()
-    data = [listing.model_dump() for listing in listings]
-    df = pl.DataFrame(data)
-    logger.info("Converted %d listings to DataFrame", df.height)
-    return df
+    return pl.DataFrame([listing.model_dump() for listing in listings])
 
 
 @task(cache_policy=NONE)

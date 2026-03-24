@@ -68,9 +68,6 @@ def scrape_to_bronze(
     )
 
     scrape_date = datetime.now(UTC)
-
-    # Get scraper class
-    logger.info("Initializing %s scraper", scraper_type.value)
     scraper_class = scraper_type.get_scraper_class()
 
     with scraper_class(
@@ -99,7 +96,6 @@ def scrape_to_bronze(
                 logger.error("Page %d failed after all retries", page, exc_info=True)
 
     # Aggregate results from all pages
-    logger.info("Aggregating results from all pages")
     all_listings, failed_listings = aggregate_results(page_results)
     total_listings = len(all_listings)
     logger.info("Total: %d listings scraped, %d failed", total_listings, failed_listings)
@@ -113,8 +109,6 @@ def scrape_to_bronze(
         )
 
     # Convert to DataFrame and save to MinIO (raw bucket)
-    logger.info("Saving listings to MinIO")
-
     try:
         df = listings_to_dataframe(all_listings)
         storage = MinIOStorage(
@@ -143,8 +137,6 @@ def scrape_to_bronze(
             failed_listings=failed_listings,
             error="Failed to save listings to MinIO",
         )
-
-    logger.info("Scraping flow completed successfully")
 
     return ScrapeToBronzeResult(
         status=FlowStatus.SUCCESS,

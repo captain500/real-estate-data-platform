@@ -23,7 +23,7 @@ def build_row_hash_expr(columns: list[str]) -> pl.Expr:
         [pl.col(c).cast(pl.Utf8).fill_null("") for c in columns],
         separator="|",
     )
-    return concat.map_elements(
-        lambda v: hashlib.md5(v.encode()).hexdigest(),
+    return concat.map_batches(
+        lambda s: pl.Series(hashlib.md5(v.encode()).hexdigest() for v in s),
         return_dtype=pl.Utf8,
     )

@@ -35,13 +35,10 @@ def fetch_and_parse_page(
     """
     logger = get_run_logger()
 
-    logger.info("Fetching page %d for %s using %s", page, city.value, scraper.__class__.__name__)
-
     soup = scraper.get_page(city=city, page=page)
-
     listings, failed_listings = scraper.parse_page(soup=soup, city=city)
 
-    logger.info("Parsed %d listings from page %d (%d failed)", len(listings), page, failed_listings)
+    logger.info("Page %d: %d listings parsed, %d failed", page, len(listings), failed_listings)
 
     return ScrapingResult(
         page_number=page,

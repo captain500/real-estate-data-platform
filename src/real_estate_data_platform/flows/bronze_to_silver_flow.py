@@ -189,5 +189,5 @@ if __name__ == "__main__":
     result = bronze_to_silver(
         source=DataSource.KIJIJI,
         mode=DateMode.LAST_X_DAYS,
-        days=1,
+        days=30,
     )
