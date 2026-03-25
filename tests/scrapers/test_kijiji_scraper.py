@@ -419,7 +419,18 @@ class TestGetPage:
         assert isinstance(soup, BeautifulSoup)
         assert soup.find("h1").text == "Test"
 
-    def test_passes_correct_url_and_params(self, kijiji_scraper):
+    def test_passes_correct_url_page_1(self, kijiji_scraper):
+        mock_response = MagicMock()
+        mock_response.text = "<html></html>"
+        mock_response.raise_for_status = MagicMock()
+
+        with patch.object(kijiji_scraper.session, "get", return_value=mock_response) as mock_get:
+            kijiji_scraper.get_page(City.TORONTO, page=1)
+
+        expected_url = "https://www.kijiji.ca/b-apartments-condos/city-of-toronto/c37l1700273"
+        mock_get.assert_called_once_with(expected_url, timeout=10)
+
+    def test_passes_correct_url_page_gt_1(self, kijiji_scraper):
         mock_response = MagicMock()
         mock_response.text = "<html></html>"
         mock_response.raise_for_status = MagicMock()
@@ -427,8 +438,10 @@ class TestGetPage:
         with patch.object(kijiji_scraper.session, "get", return_value=mock_response) as mock_get:
             kijiji_scraper.get_page(City.TORONTO, page=3)
 
-        expected_url = "https://www.kijiji.ca/b-apartments-condos/city-of-toronto/c37l1700273"
-        mock_get.assert_called_once_with(expected_url, params={"page": 3}, timeout=10)
+        expected_url = (
+            "https://www.kijiji.ca/b-apartments-condos/city-of-toronto/page-3/c37l1700273"
+        )
+        mock_get.assert_called_once_with(expected_url, timeout=10)
 
     def test_raises_on_http_error(self, kijiji_scraper):
         import requests

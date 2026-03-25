@@ -150,8 +150,8 @@ if __name__ == "__main__":
     result = scrape_to_bronze(
         scraper_type=ScraperType.KIJIJI,
         city=City.TORONTO,
-        max_pages=5,
+        max_pages=10,
         mode=DateMode.LAST_X_DAYS,
-        days=1,
+        days=5,
     )
     print(f"Scraping result: {result}")

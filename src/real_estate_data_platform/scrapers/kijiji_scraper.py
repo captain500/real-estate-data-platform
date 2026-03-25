@@ -91,10 +91,14 @@ class KijijiScraper(BaseScraper):
             requests.HTTPError: If HTTP request fails
         """
         city_path = self.supported_cities[city]
+        if page > 1:
+            # Kijiji uses path-based pagination: .../city-of-toronto/page-2/c37l1700273
+            parts = city_path.split("/")
+            city_path = f"{parts[0]}/page-{page}/{parts[1]}"
         url = f"{self.base_url}/{city_path}"
 
         logger.info("Fetching %s (page %d)", url, page)
-        response = self.session.get(url, params={"page": page}, timeout=10)
+        response = self.session.get(url, timeout=10)
         response.raise_for_status()
 
         return BeautifulSoup(response.text, "html.parser")
