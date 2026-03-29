@@ -260,17 +260,21 @@ The platform is designed to be fully idempotent:
 ## Testing
 
 ```bash
-poetry run pytest tests/ -v
+make test
 ```
 
-116 tests covering:
+194 tests covering:
 
 | Area | Tests | Scope |
 |---|---|---|
 | Silver schema | 42 | Column registry, SQL generation, hash columns, upsert strategies |
-| Kijiji scraper | 36 | JSON-LD extraction, attribute mapping, neighbourhood parsing, listing detail, HTTP handling |
+| Kijiji scraper | 37 | JSON-LD extraction, attribute mapping, neighbourhood parsing, listing detail, HTTP handling |
+| Silver transform | 33 | Boolean conversion, range validation, PK enforcement, dedup, row hash, neighbourhood extraction |
+| Parsers | 21 | `parse_float`, `parse_int` — price/count extraction from scraped strings |
 | Base scraper | 17 | Date filtering logic, template method, init |
+| Date utils | 16 | ISO datetime parsing, date formatting, partition date range generation |
 | Postgres connector | 13 | Upsert SQL, schema creation, context manager |
+| Row hashing | 7 | MD5 determinism, null handling, separator collision prevention |
 | Silver → Gold flow | 5 | dbt snapshot + run success/error paths, result model |
 | dbt task | 3 | PrefectDbtRunner invocation, error propagation, settings |
 
@@ -280,21 +284,36 @@ Test fixtures use saved HTML pages from Kijiji for deterministic, offline testin
 
 ## Development
 
+A `Makefile` provides shortcuts for all common operations. Run `make` to see available targets.
+
 ```bash
 # Install dependencies
-poetry install
+make install
 
 # Start infrastructure
-docker compose up -d
+make infra
 
-# Run linters
-poetry run pre-commit run --all-files
+# Run linter
+make lint
+
+# Auto-format code
+make format
 
 # Run tests
-poetry run pytest tests/ -v
+make test
+
+# Run full CI pipeline locally (lint + format-check + tests)
+make check
+
+# Stop infrastructure
+make down
 
 # Execute flows
 poetry run python src/real_estate_data_platform/flows/scrape_to_bronze_flow.py
 poetry run python src/real_estate_data_platform/flows/bronze_to_silver_flow.py
 poetry run python src/real_estate_data_platform/flows/silver_to_gold_flow.py
 ```
+
+### CI
+
+GitHub Actions runs lint, format check, and tests on every push/PR to `main` (see `.github/workflows/ci.yml`). Run `make check` locally to replicate the same pipeline before pushing.
