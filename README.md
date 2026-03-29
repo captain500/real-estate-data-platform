@@ -214,6 +214,36 @@ docker compose up -d    # PostgreSQL + MinIO + bucket init
 | PostgreSQL | 5432 | Silver + Gold layers |
 | MinIO API | 9000 | Bronze storage |
 | MinIO Console | 9001 | Web UI |
+| Metabase | 3000 | BI dashboards (Metabase) |
+
+---
+
+
+---
+
+## BI Dashboarding (Metabase)
+
+Metabase is included in the infrastructure for easy dashboarding and data exploration.
+
+**Access Metabase:**
+
+- Open [http://localhost:3000](http://localhost:3000) in your browser.
+- On first launch, create an admin user (any email/password).
+- When prompted to connect a database, use the following settings:
+
+| Field         | Value         |
+|-------------- |--------------|
+| Database type | PostgreSQL    |
+| Host          | postgres      |
+| Port          | 5432          |
+| Database name | etl_db        |
+| Username      | etl_user      |
+| Password      | etl_pass      |
+
+**Note:**
+- The host must be `postgres` (the Docker Compose service name), not `localhost`.
+- Credentials are set in your `.env` and `docker-compose.yml`.
+- After connecting, you can explore tables in the `silver` and `gold` schemas.
 
 ---
 
@@ -282,7 +312,8 @@ Test fixtures use saved HTML pages from Kijiji for deterministic, offline testin
 
 ---
 
-## Development
+
+---
 
 A `Makefile` provides shortcuts for all common operations. Run `make` to see available targets.
 
