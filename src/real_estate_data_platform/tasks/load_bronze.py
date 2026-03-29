@@ -25,7 +25,7 @@ def listings_to_dataframe(listings: list[RentalsListing]) -> pl.DataFrame:
     return pl.DataFrame([listing.model_dump() for listing in listings])
 
 
-@task(cache_policy=NONE)
+@task(cache_policy=NONE, retries=2, retry_delay_seconds=[5, 30])
 def save_listings_to_minio(
     df: pl.DataFrame,
     storage: MinIOStorage,

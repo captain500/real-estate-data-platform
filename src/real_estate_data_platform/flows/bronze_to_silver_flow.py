@@ -24,7 +24,7 @@ from real_estate_data_platform.tasks.transform_silver import transform_to_silver
 from real_estate_data_platform.utils.dates import date_range, format_date
 
 
-@flow(name="process-partition")
+@flow(name="process-partition", timeout_seconds=600)
 def process_partition(
     source: str,
     city: str,
@@ -123,7 +123,11 @@ def process_partition(
     )
 
 
-@flow(name="bronze-to-silver")
+@flow(
+    name="bronze-to-silver",
+    timeout_seconds=1800,
+    log_prints=True,
+)
 def bronze_to_silver(
     source: DataSource = DataSource.KIJIJI,
     city: City | None = None,
@@ -189,5 +193,5 @@ if __name__ == "__main__":
     result = bronze_to_silver(
         source=DataSource.KIJIJI,
         mode=DateMode.LAST_X_DAYS,
-        days=1,
+        days=5,
     )

@@ -8,7 +8,10 @@ from real_estate_data_platform.models.responses import SilverToGoldResult
 from real_estate_data_platform.tasks.run_dbt import run_dbt
 
 
-@flow(name="silver-to-gold")
+@flow(
+    name="silver-to-gold",
+    timeout_seconds=900,
+)
 def silver_to_gold() -> SilverToGoldResult:
     """Main flow to apply SCD2 from silver to gold using dbt.
 

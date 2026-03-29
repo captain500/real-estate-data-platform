@@ -6,7 +6,7 @@ from prefect.cache_policies import NONE
 from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
 
 
-@task(cache_policy=NONE)
+@task(cache_policy=NONE, retries=1, retry_delay_seconds=30)
 def run_dbt(args: list[str], project_dir: str, profiles_dir: str) -> None:
     """Execute a dbt command via programmatic invocation.
 

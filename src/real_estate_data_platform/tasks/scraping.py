@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 @task(
     retries=3,
-    retry_delay_seconds=2,
+    retry_delay_seconds=[2, 10, 30],
+    timeout_seconds=1200,
 )
 def fetch_and_parse_page(
     scraper: BaseScraper,

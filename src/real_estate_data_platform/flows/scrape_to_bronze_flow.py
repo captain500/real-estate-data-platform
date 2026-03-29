@@ -20,7 +20,10 @@ from real_estate_data_platform.tasks.scraping import (
 from real_estate_data_platform.utils.dates import format_date
 
 
-@flow(name="scrape-to-bronze")
+@flow(
+    name="scrape-to-bronze",
+    timeout_seconds=14400,
+)
 def scrape_to_bronze(
     scraper_type: ScraperType,
     city: City = City.TORONTO,

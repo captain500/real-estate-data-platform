@@ -7,7 +7,7 @@ from prefect.cache_policies import NONE
 from real_estate_data_platform.connectors.minio import MinIOStorage
 
 
-@task(cache_policy=NONE)
+@task(cache_policy=NONE, retries=2, retry_delay_seconds=[5, 30])
 def read_bronze_listings(
     storage: MinIOStorage,
     source: str,
