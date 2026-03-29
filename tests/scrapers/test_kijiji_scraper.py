@@ -44,7 +44,7 @@ class TestExtractJsonLd:
         data = kijiji_scraper._extract_json_ld(search_page_soup)
         assert data is not None
         assert data["@type"] == "ItemList"
-        assert len(data["itemListElement"]) == 3
+        assert len(data["itemListElement"]) == 9
 
     def test_returns_none_when_no_json_ld(self, kijiji_scraper, search_empty_soup):
         data = kijiji_scraper._extract_json_ld(search_empty_soup)
