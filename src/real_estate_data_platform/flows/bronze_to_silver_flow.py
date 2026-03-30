@@ -192,6 +192,7 @@ def bronze_to_silver(
 if __name__ == "__main__":
     result = bronze_to_silver(
         source=DataSource.KIJIJI,
+        city=City.TORONTO,
         mode=DateMode.LAST_X_DAYS,
-        days=5,
+        days=100,
     )
