@@ -302,8 +302,8 @@ class KijijiScraper(BaseScraper):
         neighbourhood = None
         scores = {"walk_score": None, "transit_score": None, "bike_score": None}
 
-        neighbourhood_ref = (
-            listing_data.get("location", {}).get("neighbourhoodInfo", {}).get("__ref")
+        neighbourhood_ref = (listing_data.get("location", {}).get("neighbourhoodInfo") or {}).get(
+            "__ref"
         )
 
         if neighbourhood_ref and neighbourhood_ref in apollo_state:
