@@ -194,5 +194,5 @@ if __name__ == "__main__":
         source=DataSource.KIJIJI,
         city=City.TORONTO,
         mode=DateMode.LAST_X_DAYS,
-        days=100,
+        days=1,
     )

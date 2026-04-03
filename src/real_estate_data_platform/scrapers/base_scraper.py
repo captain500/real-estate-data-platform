@@ -50,19 +50,16 @@ class BaseScraper(ABC):
     @abstractmethod
     def name_website(self) -> str:
         """Name of the scraper (e.g: 'kijiji')."""
-        pass
 
     @property
     @abstractmethod
     def base_url(self) -> str:
         """URL of the website (e.g: 'https://www.kijiji.ca')."""
-        pass
 
     @property
     @abstractmethod
     def supported_cities(self) -> dict[City, str]:
         """Mapping of City enum values to web-specific slugs/IDs."""
-        pass
 
     @abstractmethod
     def get_page(self, city: City, page: int = 1) -> BeautifulSoup:
@@ -79,7 +76,6 @@ class BaseScraper(ABC):
             requests.HTTPError: If HTTP request fails
             ValueError: If city not supported
         """
-        pass
 
     @abstractmethod
     def _parse_listing(self, listing_elem: BeautifulSoup, city: City) -> RentalsListing | None:
@@ -92,7 +88,6 @@ class BaseScraper(ABC):
         Returns:
             RentalsListing object or None if parsing fails
         """
-        pass
 
     @abstractmethod
     def _parse_page_impl(
@@ -112,7 +107,6 @@ class BaseScraper(ABC):
         Returns:
             Tuple of (parsed listings, number of failed listings)
         """
-        pass
 
     def parse_page(
         self,
@@ -136,26 +130,17 @@ class BaseScraper(ABC):
         return filtered_listings, failed_count
 
     def _passes_date_filter(self, listing: RentalsListing) -> bool:
-        """Check if a listing passes the date filter based on scraper mode.
-
-        Args:
-            listing: RentalsListing object to check
-
-        Returns:
-            True if listing should be included, False otherwise
-        """
-        if self.scraper_mode == DateMode.LAST_X_DAYS:
-            cutoff_date = datetime.now(UTC) - timedelta(days=self.days)
-            return listing.published_at >= cutoff_date
-        elif self.scraper_mode == DateMode.SPECIFIC_DATE and self.specific_date:
-            start_of_day = datetime.combine(self.specific_date, datetime.min.time()).replace(
-                tzinfo=UTC
-            )
-            end_of_day = datetime.combine(self.specific_date, datetime.max.time()).replace(
-                tzinfo=UTC
-            )
-            return start_of_day <= listing.published_at <= end_of_day
-        return True
+        """Check if a listing passes the date filter based on scraper mode."""
+        match self.scraper_mode:
+            case DateMode.LAST_X_DAYS:
+                cutoff = datetime.now(UTC) - timedelta(days=self.days)
+                return listing.published_at >= cutoff
+            case DateMode.SPECIFIC_DATE if self.specific_date:
+                start = datetime.combine(self.specific_date, datetime.min.time(), tzinfo=UTC)
+                end = datetime.combine(self.specific_date, datetime.max.time(), tzinfo=UTC)
+                return start <= listing.published_at <= end
+            case _:
+                return True
 
     def _apply_date_filter(self, listings: list[RentalsListing], city: str) -> list[RentalsListing]:
         """Apply date filter to listings and log results.
@@ -179,12 +164,12 @@ class BaseScraper(ABC):
 
         return filtered_listings
 
-    def close(self):
+    def close(self) -> None:
         """Close any resources (sessions, connections, etc.)."""
         self.session.close()
 
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc_info) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         self.close()

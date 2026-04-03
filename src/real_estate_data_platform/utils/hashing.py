@@ -24,6 +24,6 @@ def build_row_hash_expr(columns: list[str]) -> pl.Expr:
         separator="|",
     )
     return concat.map_batches(
-        lambda s: pl.Series(hashlib.md5(v.encode()).hexdigest() for v in s),
+        lambda s: pl.Series(hashlib.md5(v.encode(), usedforsecurity=False).hexdigest() for v in s),
         return_dtype=pl.Utf8,
     )

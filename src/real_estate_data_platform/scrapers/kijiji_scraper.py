@@ -57,6 +57,9 @@ ATTRIBUTE_MAPPING = {
     "Move-In Date": "move_in_date",
 }
 
+# Fields extracted separately in _parse_listing_detail (not passed via **attributes).
+_SEPARATELY_HANDLED_FIELDS: frozenset[str] = frozenset({"bedrooms", "bathrooms", "size_sqft"})
+
 
 class KijijiScraper(BaseScraper):
     """Scraper for Kijiji.ca rental listings."""
@@ -237,7 +240,7 @@ class KijijiScraper(BaseScraper):
                 **{
                     k: attributes.get(k)
                     for k in ATTRIBUTE_MAPPING.values()
-                    if k not in {"bedrooms", "bathrooms", "size_sqft"}
+                    if k not in _SEPARATELY_HANDLED_FIELDS
                 },
                 **scores,
             )
@@ -251,14 +254,7 @@ class KijijiScraper(BaseScraper):
             return None
 
     def _extract_json_ld(self, soup: BeautifulSoup) -> dict | None:
-        """Extract JSON-LD data from page.
-
-        Args:
-            soup: BeautifulSoup object
-
-        Returns:
-            Parsed JSON data or None
-        """
+        """Extract JSON-LD data from a search results page."""
         script = soup.find("script", type="application/ld+json")
         if not script or not script.string:
             return None
@@ -268,37 +264,16 @@ class KijijiScraper(BaseScraper):
         except json.JSONDecodeError:
             return None
 
-    def _extract_attributes(self, listing_data: dict) -> dict:
-        """Extract and normalize attributes from listing.
-
-        Args:
-            listing_data: Listing data dictionary
-
-        Returns:
-            Dictionary with normalized attributes
-        """
+    def _extract_attributes(self, listing_data: dict) -> dict[str, str | None]:
+        """Extract and normalize attributes from listing data."""
         attributes_raw = listing_data.get("attributes", {}).get("all", [])
-        attributes_raw_dict = {
-            attr["name"]: attr.get("values", [None])[0] for attr in attributes_raw
-        }
+        raw_dict = {attr["name"]: attr.get("values", [None])[0] for attr in attributes_raw}
+        return {ATTRIBUTE_MAPPING[k]: v for k, v in raw_dict.items() if k in ATTRIBUTE_MAPPING}
 
-        # Map to RentalsListing field names
-        return {
-            ATTRIBUTE_MAPPING.get(k, k): v
-            for k, v in attributes_raw_dict.items()
-            if k in ATTRIBUTE_MAPPING
-        }
-
-    def _extract_neighbourhood_info(self, listing_data: dict, apollo_state: dict) -> tuple:
-        """Extract neighbourhood name and scores.
-
-        Args:
-            listing_data: Listing data dictionary
-            apollo_state: Apollo state from JSON
-
-        Returns:
-            Tuple of (neighbourhood_name, scores_dict)
-        """
+    def _extract_neighbourhood_info(
+        self, listing_data: dict, apollo_state: dict
+    ) -> tuple[str | None, dict[str, float | None]]:
+        """Extract neighbourhood name and walkability scores."""
         neighbourhood = None
         scores = {"walk_score": None, "transit_score": None, "bike_score": None}
 

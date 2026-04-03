@@ -23,8 +23,8 @@ from real_estate_data_platform.models.silver_schema import (
 )
 from real_estate_data_platform.utils.hashing import build_row_hash_expr
 
-_TRUTHY_VALUES = {"yes", "included"}
-_FALSY_VALUES = {"no", "not included"}
+_TRUTHY_VALUES: frozenset[str] = frozenset({"yes", "included"})
+_FALSY_VALUES: frozenset[str] = frozenset({"no", "not included"})
 
 
 class SilverFrames(NamedTuple):

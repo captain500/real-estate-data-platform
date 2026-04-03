@@ -1,6 +1,7 @@
 """Response/result models for operations."""
 
 from datetime import date, datetime
+from typing import Self
 
 from pydantic import BaseModel, Field
 
@@ -77,7 +78,7 @@ class BronzeToSilverResult(_BaseResult):
     error: str | None = None
 
     @classmethod
-    def from_partitions(cls, results: list[PartitionResult]) -> "BronzeToSilverResult":
+    def from_partitions(cls, results: list[PartitionResult]) -> Self:
         """Aggregate individual partition results into a single flow result.
 
         Determines the overall status:
