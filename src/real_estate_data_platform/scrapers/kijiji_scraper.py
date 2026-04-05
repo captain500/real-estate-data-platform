@@ -285,7 +285,7 @@ class KijijiScraper(BaseScraper):
             neighbourhood_data = apollo_state[neighbourhood_ref]
             neighbourhood = neighbourhood_data.get("name")
 
-            transport_scores = neighbourhood_data.get("scores", {}).get("transportation", {})
+            transport_scores = (neighbourhood_data.get("scores") or {}).get("transportation") or {}
             scores = {
                 "walk_score": transport_scores.get("walk", {}).get("score"),
                 "transit_score": transport_scores.get("transit", {}).get("score"),
